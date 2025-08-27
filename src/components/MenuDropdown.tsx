@@ -1,0 +1,63 @@
+import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
+import { Settings, User, Palette, Shield, HelpCircle } from 'lucide-react';
+
+interface MenuDropdownProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const MenuDropdown: React.FC<MenuDropdownProps> = ({ isOpen, onClose }) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      gsap.fromTo(menuRef.current,
+        { y: -20, opacity: 0, scale: 0.95 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)' }
+      );
+      
+      gsap.fromTo('.menu-item',
+        { opacity: 0, x: -10 },
+        { opacity: 1, x: 0, duration: 0.3, stagger: 0.05, ease: 'power2.out' }
+      );
+    } else {
+      gsap.to(menuRef.current,
+        { y: -20, opacity: 0, scale: 0.95, duration: 0.2, ease: 'power2.in' }
+      );
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const menuItems = [
+    { icon: User, label: 'Profile', action: () => {} },
+    { icon: Settings, label: 'Settings', action: () => {} },
+    { icon: Palette, label: 'Theme', action: () => {} },
+    { icon: Shield, label: 'Privacy', action: () => {} },
+    { icon: HelpCircle, label: 'Help', action: () => {} },
+  ];
+
+  return (
+    <>
+      <div className="menu-overlay" onClick={onClose} />
+      <div ref={menuRef} className="menu-dropdown glass-effect">
+        {menuItems.map((item, index) => (
+          <button
+            key={index}
+            className="menu-item"
+            onClick={() => {
+              item.action();
+              onClose();
+            }}
+          >
+            <item.icon size={18} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+};
+
+export default MenuDropdown;
