@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Home, MessageCircle, Gamepad2, Settings, Bell, Bot, User, LogOut, Sun, Moon } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 
 interface NavbarProps {
-  sessionData: { sessionId: string; userCode: string };
   onLogout: () => void;
   onMenuToggle: () => void;
   onGamesToggle: () => void;
@@ -11,7 +11,11 @@ interface NavbarProps {
   onThemeToggle: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ sessionData, onLogout, onMenuToggle, onGamesToggle, isDarkMode, onThemeToggle }) => {
+const Navbar: React.FC<NavbarProps> = ({ onLogout, onMenuToggle, onGamesToggle, isDarkMode, onThemeToggle }) => {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const [userCode] = React.useState(() => 
+    Math.random().toString(36).substring(2, 12).toUpperCase()
+  );
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,7 +65,7 @@ const Navbar: React.FC<NavbarProps> = ({ sessionData, onLogout, onMenuToggle, on
         </div>
 
         <div className="navbar-center">
-          <h1 className="session-title">Session: {sessionData.sessionId}</h1>
+          <h1 className="session-title">Session: {sessionId}</h1>
         </div>
 
         <div className="navbar-right">
@@ -77,7 +81,7 @@ const Navbar: React.FC<NavbarProps> = ({ sessionData, onLogout, onMenuToggle, on
           <div className="navbar-profile">
             <button className="profile-btn" onClick={onMenuToggle}>
               <User size={20} />
-              <span>{sessionData.userCode}</span>
+              <span>{userCode}</span>
             </button>
           </div>
           <button className="nav-icon logout-btn" onClick={onLogout}>

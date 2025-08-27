@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import { Users, Sparkles } from 'lucide-react';
 
 interface AuthScreenProps {
-  onSessionJoin: (sessionId: string, userCode: string) => void;
+  onSessionJoin: (sessionId: string) => void;
 }
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
@@ -51,7 +51,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
     tl.to(containerRef.current, {
       opacity: 0,
       duration: 0.3,
-      onComplete: () => onSessionJoin(sessionId, userCode)
+      onComplete: () => onSessionJoin(sessionId)
     });
   };
 

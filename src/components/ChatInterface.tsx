@@ -6,9 +6,9 @@ import ChatArea from './ChatArea';
 import InputArea from './InputArea';
 import GamesPanel from './GamesPanel';
 import MenuDropdown from './MenuDropdown';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface ChatInterfaceProps {
-  sessionData: { sessionId: string; userCode: string };
   onLogout: () => void;
 }
 
@@ -27,7 +27,11 @@ interface Participant {
   avatar: string;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionData, onLogout }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  const [userCode] = React.useState(() => 
+    Math.random().toString(36).substring(2, 12).toUpperCase()
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -70,7 +74,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionData, onLogout }) 
     const newMessage: Message = {
       id: Date.now().toString(),
       text,
-      sender: sessionData.userCode,
+      sender: userCode,
       timestamp: new Date(),
       type
     };
@@ -80,7 +84,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionData, onLogout }) 
   return (
     <div ref={containerRef} className={`chat-interface ${isDarkMode ? 'dark' : 'light'}`}>
       <Navbar
-        sessionData={sessionData}
         onLogout={onLogout}
         onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
         onGamesToggle={() => setIsGamesOpen(!isGamesOpen)}
@@ -97,7 +100,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionData, onLogout }) 
         <Sidebar participants={participants} />
         
         <div className="chat-main">
-          <ChatArea messages={messages} currentUser={sessionData.userCode} />
+          <ChatArea messages={messages} currentUser={userCode} />
           <InputArea onSendMessage={handleSendMessage} />
         </div>
 
