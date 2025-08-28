@@ -6,6 +6,7 @@ import ChatArea from './ChatArea';
 import InputArea from './InputArea';
 import GamesPanel from './GamesPanel';
 import MenuDropdown from './MenuDropdown';
+import ChatbotOverlay from './ChatbotOverlay';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface ChatInterfaceProps {
@@ -36,6 +37,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +91,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
         onGamesToggle={() => setIsGamesOpen(!isGamesOpen)}
         isDarkMode={isDarkMode}
         onThemeToggle={handleThemeToggle}
+        setIsGamesOpen={setIsGamesOpen}
+        setIsMenuOpen={setIsMenuOpen}
       />
       
       <MenuDropdown
@@ -96,12 +100,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
         onClose={() => setIsMenuOpen(false)}
       />
 
-      <div className="chat-body">
+      <div className="chat-body relative">
+        <ChatbotOverlay 
+          isOpen={isChatbotOpen}
+          onClose={() => setIsChatbotOpen(false)}
+        />
         <Sidebar participants={participants} />
         
         <div className="chat-main">
           <ChatArea messages={messages} currentUser={userCode} />
-          <InputArea onSendMessage={handleSendMessage} />
+          <InputArea 
+            onSendMessage={handleSendMessage} 
+            onOpenChatbot={() => setIsChatbotOpen(true)}
+          />
         </div>
 
         <GamesPanel

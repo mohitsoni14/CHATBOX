@@ -4,6 +4,7 @@ import App from './App';
 import AuthScreen from './components/AuthScreen';
 import ChatInterface from './components/ChatInterface';
 import Preloader from './components/Preloader';
+import Login from './pages/Login';
 
 // Wrapper components to handle props
 const PreloaderWrapper = () => {
@@ -47,6 +48,10 @@ export const router = createBrowserRouter([
       {
         path: "/auth",
         element: <AuthScreenWrapper />
+      },
+      {
+        path: "/login",
+        element: <Login />
       },
       {
         path: "/chat/:sessionId",

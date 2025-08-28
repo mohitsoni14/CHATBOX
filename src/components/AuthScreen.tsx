@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { Users, Sparkles } from 'lucide-react';
+import { saveSessionData } from '../firebase/firebase';
 
 interface AuthScreenProps {
   onSessionJoin: (sessionId: string) => void;
@@ -39,20 +40,30 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
 
     setIsLoading(true);
 
-    // Exit animation
-    const tl = gsap.timeline();
-    tl.to(cardRef.current, {
-      scale: 0.8,
-      opacity: 0,
-      y: -50,
-      duration: 0.5,
-      ease: 'power2.inOut'
-    });
-    tl.to(containerRef.current, {
-      opacity: 0,
-      duration: 0.3,
-      onComplete: () => onSessionJoin(sessionId)
-    });
+    try {
+      // Save session data to Firebase
+      await saveSessionData(sessionId, userCode);
+      
+      // Exit animation
+      const tl = gsap.timeline();
+      tl.to(cardRef.current, {
+        scale: 0.8,
+        opacity: 0,
+        y: -50,
+        duration: 0.5,
+        ease: 'power2.inOut'
+      });
+      tl.to(containerRef.current, {
+        opacity: 0,
+        duration: 0.3,
+        onComplete: () => onSessionJoin(sessionId)
+      });
+    } catch (error) {
+      console.error('Error joining session:', error);
+      setIsLoading(false);
+      // Optional: Show error message to user
+      alert('Failed to join session. Please try again.');
+    }
   };
 
   return (

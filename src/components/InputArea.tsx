@@ -1,12 +1,16 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { Send, Camera, Mic, Paperclip, Smile, Bot } from 'lucide-react';
+import ChatbotOverlay from './ChatbotOverlay';
 
 interface InputAreaProps {
   onSendMessage: (text: string, type?: 'text' | 'image' | 'file') => void;
+  onOpenChatbot: () => void;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ onSendMessage }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) => {
+  const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,23 +94,27 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage }) => {
             placeholder="Type your message..."
             className="message-input"
           />
-          <button
-            className="emoji-btn"
-            onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
-            onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
-          >
-            <Smile size={20} />
-          </button>
+          <div className="flex items-center">
+            <button
+              className="emoji-btn"
+              onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
+              onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+            >
+              <Smile size={20} />
+            </button>
+            <button
+              className="ai-btn ml-2 p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              onClick={onOpenChatbot}
+              onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
+              onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+              title="AI Assistant"
+            >
+              <Bot size={20} className="text-blue-500 dark:text-blue-400" />
+            </button>
+          </div>
         </div>
 
         <div className="action-buttons">
-          <button
-            className="ai-btn"
-            onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
-            onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
-          >
-            <Bot size={20} />
-          </button>
           <button
             ref={sendButtonRef}
             onClick={handleSend}
@@ -119,6 +127,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage }) => {
           </button>
         </div>
       </div>
+      
     </div>
   );
 };

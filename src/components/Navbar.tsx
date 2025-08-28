@@ -9,9 +9,19 @@ interface NavbarProps {
   onGamesToggle: () => void;
   isDarkMode: boolean;
   onThemeToggle: () => void;
+  setIsGamesOpen?: (isOpen: boolean) => void;
+  setIsMenuOpen?: (isOpen: boolean) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onLogout, onMenuToggle, onGamesToggle, isDarkMode, onThemeToggle }) => {
+const Navbar: React.FC<NavbarProps> = ({
+  onLogout,
+  onMenuToggle,
+  onGamesToggle,
+  isDarkMode,
+  onThemeToggle,
+  setIsGamesOpen,
+  setIsMenuOpen
+}) => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [userCode] = React.useState(() => 
     Math.random().toString(36).substring(2, 12).toUpperCase()
@@ -41,23 +51,34 @@ const Navbar: React.FC<NavbarProps> = ({ onLogout, onMenuToggle, onGamesToggle, 
   }, []);
 
   return (
-    <nav ref={navRef} className="navbar glass-effect">
+    <nav ref={navRef} className="navbar glass-effect mt-2">
       <div className="navbar-content">
         <div className="navbar-left">
           <div className="navbar-logo">
             <MessageCircle size={24} />
-            <span>ChatFlow</span>
+            <span>OnlyChats</span>
           </div>
           <div className="navbar-links">
-            <button className="nav-link active">
+            <button 
+              className="nav-link active"
+              onClick={() => {
+                // Close any open sections when Home is clicked
+                if (typeof onGamesToggle === 'function') {
+                  setIsGamesOpen?.(false);
+                }
+                if (typeof onMenuToggle === 'function') {
+                  setIsMenuOpen?.(false);
+                }
+              }}
+            >
               <Home size={18} />
               <span>Home</span>
             </button>
-            <button className="nav-link">
-              <MessageCircle size={18} />
-              <span>Chat</span>
-            </button>
-            <button className="nav-link" onClick={onGamesToggle}>
+            
+            <button 
+              className="nav-link" 
+              onClick={onGamesToggle}
+            >
               <Gamepad2 size={18} />
               <span>Games</span>
             </button>
