@@ -22,11 +22,19 @@ const analytics = getAnalytics(app);
 const database = getDatabase(app);
 
 // Function to save session data
-export const saveSessionData = (sessionId, userCode) => {
-  return set(ref(database, 'sessions/' + sessionId + '/users/' + userCode), {
-    userCode: userCode,
-    joinedAt: new Date().toISOString()
+export const saveSessionData = (sessionId, username) => {
+  const userRef = ref(database, `sessions/${sessionId}/users/${Date.now()}`);
+  return set(userRef, {
+    username: username,
+    sessionId: sessionId,
+    joinedAt: new Date().toISOString(),
+    lastActive: new Date().toISOString()
   });
+};
+
+// Function to get users in a session
+export const getSessionUsers = (sessionId) => {
+  return ref(database, `sessions/${sessionId}/users`);
 };
 
 export const auth = getAuth(app);

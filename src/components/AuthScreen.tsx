@@ -9,7 +9,7 @@ interface AuthScreenProps {
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
   const [sessionId, setSessionId] = useState('');
-  const [userCode, setUserCode] = useState('');
+  const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,9 +24,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
 
   const generateRandomCode = () => {
     const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const randomName = `User${Math.floor(1000 + Math.random() * 9000)}`;
     setSessionId(randomId);
-    setUserCode(randomCode);
+    setUsername(randomName);
     
     // Animate the generation
     gsap.fromTo('.generated-code',
@@ -36,13 +36,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
   };
 
   const handleJoinSession = async () => {
-    if (!sessionId.trim() || !userCode.trim()) return;
+    if (!sessionId.trim() || !username.trim()) return;
 
     setIsLoading(true);
 
     try {
       // Save session data to Firebase
-      await saveSessionData(sessionId, userCode);
+      await saveSessionData(sessionId, username);
       
       // Exit animation
       const tl = gsap.timeline();
@@ -91,13 +91,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
           </div>
 
           <div className="input-group">
-            <label htmlFor="userCode">User Code</label>
+            <label htmlFor="username">Username</label>
             <input
-              id="userCode"
+              id="username"
               type="text"
-              value={userCode}
-              onChange={(e) => setUserCode(e.target.value.toUpperCase())}
-              placeholder="Enter your code"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your name"
               className="auth-input glass-input"
             />
           </div>
@@ -112,7 +112,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
 
           <button
             onClick={handleJoinSession}
-            disabled={!sessionId.trim() || !userCode.trim() || isLoading}
+            disabled={!sessionId.trim() || !username.trim() || isLoading}
             className="join-btn primary-btn"
           >
             {isLoading ? (
