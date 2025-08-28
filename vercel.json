@@ -5,22 +5,29 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "cleanUrls": true
       }
     }
   ],
   "routes": [
     {
-      "src": "/_next/static/(.*)",
-      "dest": "/_next/static/$1"
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1",
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      }
     },
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "src": "/.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json)",
+      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
