@@ -52,33 +52,37 @@ export const saveSessionData = async (sessionId, username) => {
   console.log('saveSessionData called with:', { sessionId, username });
   
   try {
-    if (!isAuthenticated || !auth.currentUser) {
-      console.log('No active user, initializing auth...');
+    if (!auth.currentUser) {
       await initAuth();
     }
     
     if (!auth.currentUser) {
-      const error = new Error('User not authenticated after initialization');
-      console.error(error);
-      throw error;
+      throw new Error('User not authenticated after initialization');
     }
 
-    const userPath = `sessions/${sessionId}/users/${auth.currentUser.uid}`;
-    console.log('Attempting to write to path:', userPath);
-    
+    const userId = auth.currentUser.uid;
     const userData = {
       username: username,
       sessionId: sessionId,
       joinedAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
-      userId: auth.currentUser.uid
+      userId: userId,
+      status: 'online',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random`
     };
-    
-    console.log('Writing user data:', userData);
-    
-    const result = await set(ref(database, userPath), userData);
-    console.log('Write successful');
-    return result;
+
+    // Save user data in the session
+    const sessionUserPath = `sessions/${sessionId}/users/${userId}`;
+    await set(ref(database, sessionUserPath), userData);
+
+    // Also save a reference in the users node for easier querying
+    const userPath = `users/${userId}`;
+    await set(ref(database, userPath), {
+      ...userData,
+      currentSession: sessionId
+    });
+
+    return userData;
   } catch (error) {
     console.error('Error in saveSessionData:', {
       code: error.code,

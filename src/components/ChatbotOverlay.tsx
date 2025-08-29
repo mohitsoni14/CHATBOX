@@ -1,62 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { X, Send, Loader2 } from 'lucide-react';
-const GEMINI_API_KEY = 'AIzaSyAeKc2DFrtbi7I07BsA2RlPZTaKMGCbIm8';
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-pro';
-const GEMINI_API_URL = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-// Function to list available models
-async function listAvailableModels() {
-  try {
-    const response = await fetch(`${GEMINI_API_BASE}/models?key=${GEMINI_API_KEY}`);
-    const data = await response.json();
-    console.log('Available models:', data);
-    return data;
-  } catch (error) {
-    console.error('Error listing models:', error);
-    throw error;
-  }
-}
-
-// Call this when the component mounts to check available models
-// listAvailableModels().catch(console.error);
-
-// Simple function to call Gemini API
-async function generateContent(prompt: string) {
-  try {
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Gemini API Error:', error);
-      throw new Error('Failed to generate content. Please check your API key and try again.');
-    }
-
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
-  } catch (error) {
-    console.error('Error calling Gemini API:', error);
-    throw error;
-  }
+// Mock response generator
+async function generateContent(prompt: string): Promise<string> {
+  // Add a small delay to simulate network request
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  const responses = [
+    "I'm a mock AI assistant. In a real implementation, this would be a response from an AI service.",
+    "Thanks for your message! This is a simulated response since we're not connected to an AI service.",
+    "I'm here to help! This is a placeholder response. In a production environment, this would connect to an AI service.",
+    "Hello! This is a demo response. The actual implementation would generate a relevant reply to your message.",
+    "I'm a placeholder for the AI assistant. Your message was: " + prompt
+  ];
+  
+  // Return a random response
+  return responses[Math.floor(Math.random() * responses.length)];
 }
 interface ChatbotOverlayProps {
   isOpen: boolean;

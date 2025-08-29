@@ -12,9 +12,10 @@ interface Message {
 interface ChatAreaProps {
   messages: Message[];
   currentUser: string;
+  username: string;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) => {
   const chatRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -46,11 +47,15 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser }) => {
               className={`message-bubble ${isOwnMessage ? 'own-message' : 'other-message'}`}
             >
               <div className="message-content">
-                <div className="message-text">{message.text}</div>
-                <div className="message-meta">
-                  <span className="message-sender">{message.sender}</span>
-                  <span className="message-time">{formatTime(message.timestamp)}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-sm">
+                    {isOwnMessage ? username : message.sender}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {formatTime(message.timestamp)}
+                  </span>
                 </div>
+                <div className="message-text mt-1">{message.text}</div>
               </div>
             </div>
           );

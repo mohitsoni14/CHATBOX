@@ -21,24 +21,17 @@ interface Message {
   type: 'text' | 'image' | 'file';
 }
 
-interface Participant {
-  id: string;
-  name: string;
-  status: 'online' | 'idle' | 'offline';
-  avatar: string;
-}
-
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [userCode] = React.useState(() => 
     Math.random().toString(36).substring(2, 12).toUpperCase()
   );
   const [messages, setMessages] = useState<Message[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isGamesOpen, setIsGamesOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isGamesOpen, setIsGamesOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [username, setUsername] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,17 +41,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
       { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' }
     );
 
-    // Initialize demo data
-    setParticipants([
-      { id: '1', name: 'Alice', status: 'online', avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?w=100&h=100&fit=crop&crop=face' },
-      { id: '2', name: 'Bob', status: 'idle', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?w=100&h=100&fit=crop&crop=face' },
-      { id: '3', name: 'Charlie', status: 'online', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?w=100&h=100&fit=crop&crop=face' },
-    ]);
+    // Get username from localStorage or generate a random one
+    const storedUsername = localStorage.getItem('chat_username');
+    if (storedUsername) {
+      setUsername(storedUsername);
+    } else {
+      const randomUsername = `User${Math.floor(1000 + Math.random() * 9000)}`;
+      setUsername(randomUsername);
+      localStorage.setItem('chat_username', randomUsername);
+    }
 
-    setMessages([
-      { id: '1', text: 'Welcome to the session!', sender: 'Alice', timestamp: new Date(Date.now() - 300000), type: 'text' },
-      { id: '2', text: 'Great to have everyone here', sender: 'Bob', timestamp: new Date(Date.now() - 180000), type: 'text' },
-    ]);
+    // Initial welcome message
+    const welcomeMessage: Message = {
+      id: '1',
+      text: 'Welcome to the chat!',
+      sender: 'system',
+      timestamp: new Date(),
+      type: 'text'
+    };
+    setMessages([welcomeMessage]);
 
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
@@ -93,6 +94,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
         onThemeToggle={handleThemeToggle}
         setIsGamesOpen={setIsGamesOpen}
         setIsMenuOpen={setIsMenuOpen}
+        username={username}
       />
       
       <MenuDropdown
@@ -105,10 +107,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
           isOpen={isChatbotOpen}
           onClose={() => setIsChatbotOpen(false)}
         />
-        <Sidebar participants={participants} />
+        {sessionId && <Sidebar sessionId={sessionId} />}
         
         <div className="chat-main">
-          <ChatArea messages={messages} currentUser={userCode} />
+          <ChatArea 
+            messages={messages} 
+            currentUser={userCode} 
+            username={username} 
+          />
           <InputArea 
             onSendMessage={handleSendMessage} 
             onOpenChatbot={() => setIsChatbotOpen(true)}

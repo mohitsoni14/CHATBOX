@@ -147,7 +147,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
                 {showEmojiPicker ? <X size={20} /> : <Smile size={20} />}
               </button>
               {showEmojiPicker && (
-                <div className="absolute bottom-10 left-0 z-50">
+                <div className="absolute bottom-10 right-0 transform z-50">
                   <EmojiPicker
                     onEmojiClick={handleEmojiClick}
                     autoFocusSearch={false}

@@ -11,6 +11,7 @@ interface NavbarProps {
   onThemeToggle: () => void;
   setIsGamesOpen?: (isOpen: boolean) => void;
   setIsMenuOpen?: (isOpen: boolean) => void;
+  username?: string;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -20,7 +21,8 @@ const Navbar: React.FC<NavbarProps> = ({
   isDarkMode,
   onThemeToggle,
   setIsGamesOpen,
-  setIsMenuOpen
+  setIsMenuOpen,
+  username
 }) => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [userCode] = React.useState(() => 
@@ -85,8 +87,8 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        <div className="navbar-center">
-          <h1 className="session-title">Session: {sessionId}</h1>
+        <div className="navbar-center w-full flex justify-center">
+          <span className="text-sm font-mono text-gray-700 dark:text-gray-300">Session: {sessionId}</span>
         </div>
 
         <div className="navbar-right">
@@ -100,9 +102,9 @@ const Navbar: React.FC<NavbarProps> = ({
             <Bot size={20} />
           </button>
           <div className="navbar-profile">
-            <button className="profile-btn" onClick={onMenuToggle}>
+            <button className="profile-btn flex items-center gap-2" onClick={onMenuToggle}>
               <User size={20} />
-              <span>{userCode}</span>
+              <span className="text-sm font-medium">{username || userCode}</span>
             </button>
           </div>
           <button className="nav-icon logout-btn" onClick={onLogout}>
