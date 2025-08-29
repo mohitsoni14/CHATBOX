@@ -12,9 +12,12 @@
     "start": "vite preview --port 3000 --host"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@google/generative-ai": "^0.24.1",
     "@tailwindcss/vite": "^4.1.12",
     "@types/react-router-dom": "^5.3.3",
+    "emoji-picker-react": "^4.13.2",
     "firebase": "^12.1.0",
     "framer-motion": "^12.23.12",
     "gsap": "^3.13.0",

@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Send, Camera, Mic, Paperclip, Smile, Bot } from 'lucide-react';
+import { Send, Camera, Mic, Paperclip, Smile, Bot, X } from 'lucide-react';
 import ChatbotOverlay from './ChatbotOverlay';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface InputAreaProps {
   onSendMessage: (text: string, type?: 'text' | 'image' | 'file') => void;
@@ -13,8 +14,10 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const handleSend = () => {
     if (message.trim()) {
@@ -54,6 +57,44 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
       ease: 'power2.out'
     });
   };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const input = inputRef.current;
+    if (input) {
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+      const text = message;
+      const newText = text.substring(0, start) + emojiData.emoji + text.substring(end);
+      setMessage(newText);
+      
+      // Set cursor position after the inserted emoji
+      const newPosition = start + emojiData.emoji.length;
+      setTimeout(() => {
+        input.selectionStart = newPosition;
+        input.selectionEnd = newPosition;
+        input.focus();
+      }, 0);
+    }
+  };
+
+  const toggleEmojiPicker = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowEmojiPicker(prev => !prev);
+  }, []);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="input-area glass-effect">
@@ -95,21 +136,40 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
             className="message-input"
           />
           <div className="flex items-center">
+            <div className="relative" ref={emojiPickerRef}>
+              <button
+                type="button"
+                className={`emoji-btn ${showEmojiPicker ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+                onClick={toggleEmojiPicker}
+                onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
+                onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+              >
+                {showEmojiPicker ? <X size={20} /> : <Smile size={20} />}
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-10 left-0 z-50">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    autoFocusSearch={false}
+                    width={300}
+                    height={350}
+                    previewConfig={{
+                      showPreview: false
+                    }}
+                    searchDisabled={false}
+                    skinTonesDisabled
+                  />
+                </div>
+              )}
+            </div>
             <button
-              className="emoji-btn"
-              onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
-              onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
-            >
-              <Smile size={20} />
-            </button>
-            <button
-              className="ai-btn ml-2 p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="ai-btn ml-2 p-1.5 rounded-full bg-black hover:bg-gray-800 transition-colors"
               onClick={onOpenChatbot}
               onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
               onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
               title="AI Assistant"
             >
-              <Bot size={20} className="text-blue-500 dark:text-blue-400" />
+              <Bot size={20} className="text-white" />
             </button>
           </div>
         </div>
