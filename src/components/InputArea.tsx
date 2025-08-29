@@ -8,9 +8,10 @@ import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 interface InputAreaProps {
   onSendMessage: (text: string, type?: 'text' | 'image' | 'file') => void;
   onOpenChatbot: () => void;
+  isConnected?: boolean;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot, isConnected = true }) => {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -20,7 +21,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const handleSend = () => {
-    if (message.trim()) {
+    if (message.trim() && isConnected) {
       onSendMessage(message.trim());
       setMessage('');
       
@@ -135,14 +136,16 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
             placeholder="Type your message..."
             className="message-input"
           />
-          <div className="flex items-center">
-            <div className="relative" ref={emojiPickerRef}>
+          <div className="relative flex items-center gap-1">
+            <div ref={emojiPickerRef} className="relative">
               <button
                 type="button"
-                className={`emoji-btn ${showEmojiPicker ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+                className={`p-2 ${isConnected ? 'text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400' : 'text-gray-400 dark:text-gray-500'} transition-colors`}
                 onClick={toggleEmojiPicker}
                 onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
                 onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+                disabled={!isConnected}
+                aria-label="Toggle emoji picker"
               >
                 {showEmojiPicker ? <X size={20} /> : <Smile size={20} />}
               </button>
@@ -163,13 +166,13 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
               )}
             </div>
             <button
-              className="ai-btn ml-2 p-1.5 rounded-full bg-black hover:bg-gray-800 transition-colors"
               onClick={onOpenChatbot}
               onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
               onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+              className="p-1 text-gray-600 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
               title="AI Assistant"
             >
-              <Bot size={20} className="text-white" />
+              <Bot size={20} />
             </button>
           </div>
         </div>
@@ -178,10 +181,9 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, onOpenChatbot }) =
           <button
             ref={sendButtonRef}
             onClick={handleSend}
-            disabled={!message.trim()}
-            className={`send-btn ${message.trim() ? 'active' : ''}`}
-            onMouseEnter={(e) => handleButtonHover(e.currentTarget)}
-            onMouseLeave={(e) => handleButtonLeave(e.currentTarget)}
+            disabled={!isConnected}
+            className={`p-2 text-white rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${isConnected ? 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-500' : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'}`}
+            aria-label={isConnected ? "Send message" : "Connecting to chat"}
           >
             <Send size={20} />
           </button>

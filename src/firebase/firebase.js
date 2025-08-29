@@ -16,68 +16,124 @@ const firebaseConfig = {
   measurementId: "G-57JZ1MXLZB"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const database = getDatabase(app);
-const auth = getAuth(app);
+// Initialize Firebase with retry logic
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
 
-// Sign in anonymously
+export const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
+export const auth = getAuth(app);
+auth.useDeviceLanguage();
+
+export const database = getDatabase(app);
+
+// Sign in anonymously with retry logic
 let isAuthenticated = false;
-const initAuth = async () => {
+let authRetryCount = 0;
+
+const initAuth = async (retryCount = 0) => {
   try {
-    console.log('Starting anonymous auth...');
+    console.log(`[${new Date().toISOString()}] Attempting anonymous auth (attempt ${retryCount + 1})...`);
     const userCredential = await signInAnonymously(auth);
+    
     isAuthenticated = true;
-    console.log('Authenticated successfully:', {
+    authRetryCount = 0;
+    
+    console.log('✅ Authenticated successfully:', {
       uid: userCredential.user.uid,
       isAnonymous: userCredential.user.isAnonymous
     });
+    
     return userCredential.user;
   } catch (error) {
-    console.error('Authentication error details:', {
+    console.error(`❌ Authentication error (attempt ${retryCount + 1}):`, {
       code: error.code,
       message: error.message,
       stack: error.stack
     });
+    
+    if (retryCount < MAX_RETRIES - 1) {
+      console.log(`Retrying in ${RETRY_DELAY}ms...`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)));
+      return initAuth(retryCount + 1);
+    }
+    
     throw error;
   }
 };
 
-// Initialize authentication
-initAuth();
+// Initialize authentication with error boundary
+const initializeFirebase = async () => {
+  try {
+    await initAuth();
+    // Set up auth state change listener
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        isAuthenticated = true;
+        console.log('👤 Auth state: User is signed in', { uid: user.uid });
+      } else {
+        isAuthenticated = false;
+        console.log('👤 Auth state: User is signed out');
+        // Try to re-authenticate if user gets signed out
+        initAuth().catch(console.error);
+      }
+    }, (error) => {
+      console.error('Auth state error:', error);
+      isAuthenticated = false;
+    });
+  } catch (error) {
+    console.error('🔥 Failed to initialize Firebase after multiple attempts:', error);
+    // You might want to show a user-friendly error message here
+  }
+};
 
-// Function to save session data
-export const saveSessionData = async (sessionId, username) => {
-  console.log('saveSessionData called with:', { sessionId, username });
+// Start the initialization
+initializeFirebase();
+
+// Function to save session data with retry logic
+export const saveSessionData = async (sessionId, username, retryCount = 0) => {
+  console.log(`[${new Date().toISOString()}] saveSessionData called:`, { 
+    sessionId, 
+    username,
+    attempt: retryCount + 1
+  });
   
   try {
     if (!auth.currentUser) {
+      console.log('No current user, initializing auth...');
       await initAuth();
+      if (!auth.currentUser) {
+        throw new Error('Failed to initialize authentication');
+      }
     }
     
-    if (!auth.currentUser) {
-      throw new Error('User not authenticated after initialization');
-    }
-
     const userId = auth.currentUser.uid;
+    const sessionRef = ref(database, `sessions/${sessionId}/users/${userId}`);
+    
     const userData = {
-      username: username,
-      sessionId: sessionId,
+      id: userId,
+      username: username || `User${Math.floor(1000 + Math.random() * 9000)}`,
       joinedAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
-      userId: userId,
-      status: 'online',
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=random`
+      isOnline: true
     };
-
-    // Save user data in the session
-    const sessionUserPath = `sessions/${sessionId}/users/${userId}`;
-    await set(ref(database, sessionUserPath), userData);
-
-    // Also save a reference in the users node for easier querying
-    const userPath = `users/${userId}`;
-    await set(ref(database, userPath), {
+    
+    console.log('Saving user data:', userData);
+    await set(sessionRef, userData);
+    
+    // Set up presence
+    const userStatusRef = ref(database, `sessions/${sessionId}/users/${userId}/isOnline`);
+    const connectedRef = ref(database, '.info/connected');
+    
+    onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        set(userStatusRef, true);
+        onDisconnect(userStatusRef).set(false);
+      }
+    });
+    
+    // Update user data with session information
+    await set(sessionRef, {
       ...userData,
       currentSession: sessionId
     });
@@ -94,8 +150,7 @@ export const saveSessionData = async (sessionId, username) => {
 }
 
 // Function to get users in a session
-export const getSessionUsers = (sessionId) => {
-  return ref(database, `sessions/${sessionId}/users`);
-};
-
-export { auth, database };
+function getSessionUsers(sessionId) {
+  const usersRef = ref(database, `sessions/${sessionId}/users`);
+  return usersRef;
+}

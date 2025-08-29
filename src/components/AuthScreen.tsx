@@ -4,7 +4,7 @@ import { Users, Sparkles } from 'lucide-react';
 import { saveSessionData } from '../firebase/firebase';
 
 interface AuthScreenProps {
-  onSessionJoin: (sessionId: string) => void;
+  onSessionJoin: (sessionId: string, username: string) => void;
 }
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
@@ -59,7 +59,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
       tl.to(containerRef.current, {
         opacity: 0,
         duration: 0.3,
-        onComplete: () => onSessionJoin(sessionId)
+        onComplete: () => onSessionJoin(sessionId, username)
       });
     } catch (error) {
       console.error('Error joining session:', error);

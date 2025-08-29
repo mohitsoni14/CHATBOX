@@ -9,6 +9,7 @@ interface NavbarProps {
   onGamesToggle: () => void;
   isDarkMode: boolean;
   onThemeToggle: () => void;
+  onOpenChatbot?: () => void;
   setIsGamesOpen?: (isOpen: boolean) => void;
   setIsMenuOpen?: (isOpen: boolean) => void;
   username?: string;
@@ -20,6 +21,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onGamesToggle,
   isDarkMode,
   onThemeToggle,
+  onOpenChatbot,
   setIsGamesOpen,
   setIsMenuOpen,
   username
@@ -52,6 +54,9 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  console.log('Navbar - username:', username);
+  console.log('Navbar - userCode:', userCode);
+  
   return (
     <nav ref={navRef} className="navbar glass-effect mt-2">
       <div className="navbar-content">
@@ -98,13 +103,19 @@ const Navbar: React.FC<NavbarProps> = ({
           <button className="nav-icon theme-toggle" onClick={onThemeToggle}>
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button className="nav-icon">
+          <button 
+            className="nav-icon" 
+            onClick={onOpenChatbot}
+            title="Open AI Chatbot"
+          >
             <Bot size={20} />
           </button>
           <div className="navbar-profile">
             <button className="profile-btn flex items-center gap-2" onClick={onMenuToggle}>
               <User size={20} />
-              <span className="text-sm font-medium">{username || userCode}</span>
+              <span className="text-sm font-medium">
+                {username || `User${userCode.substring(0, 4)}`}
+              </span>
             </button>
           </div>
           <button className="nav-icon logout-btn" onClick={onLogout}>
