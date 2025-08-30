@@ -4,6 +4,15 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    // This proxy is essential for the manual method
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001', // Or whatever port vercel dev runs on
+        changeOrigin: true,
+      },
+    },
+  },
   base: '/',
   plugins: [react()],
   resolve: {

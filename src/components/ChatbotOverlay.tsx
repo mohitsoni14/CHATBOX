@@ -6,7 +6,7 @@ import { X, Send, Loader2 } from 'lucide-react';
 async function generateContent(prompt: string): Promise<string> {
   // Add a small delay to simulate network request
   await new Promise(resolve => setTimeout(resolve, 800));
-  
+
   const responses = [
     "I'm a mock AI assistant. In a real implementation, this would be a response from an AI service.",
     "Thanks for your message! This is a simulated response since we're not connected to an AI service.",
@@ -14,7 +14,7 @@ async function generateContent(prompt: string): Promise<string> {
     "Hello! This is a demo response. The actual implementation would generate a relevant reply to your message.",
     "I'm a placeholder for the AI assistant. Your message was: " + prompt
   ];
-  
+
   // Return a random response
   return responses[Math.floor(Math.random() * responses.length)];
 }
@@ -64,13 +64,27 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input; // Capture input before clearing it
     setInput('');
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('Sending message to Gemini...');
-      const aiResponse = await generateContent(input);
+      // This now calls your serverless function
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: currentInput }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      const aiResponse = data.text;
 
       const aiMessage: Message = {
         id: Date.now().toString(),
@@ -82,10 +96,9 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
       setMessages(prev => [...prev, aiMessage]);
     } catch (err) {
       console.error('Error generating response:', err);
-      setError('Failed to get response. Please try again.');
+      setError('Failed to get a response from the AI. Please try again.');
     } finally {
       setIsLoading(false);
-      // Scroll to bottom after message is added
       setTimeout(() => {
         contentRef.current?.scrollTo(0, contentRef.current.scrollHeight);
       }, 100);
@@ -129,15 +142,15 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-[100] transition-opacity duration-300"
       onClick={handleOverlayClick}
     >
       {/* Semi-transparent overlay background */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90]" />
-      
+
       {/* Main overlay container */}
-      <div 
+      <div
         ref={overlayRef}
         className="fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-6xl h-[calc(100vh-2rem)] bg-white dark:bg-gray-900 rounded-xl shadow-xl overflow-hidden flex flex-col z-[100] border border-gray-200 dark:border-gray-700"
         onClick={(e) => e.stopPropagation()}
@@ -175,12 +188,11 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
                     </svg>
                   </div>
                 )}
-                <div 
-                  className={`rounded-lg p-3 max-w-[80%] shadow-sm ${
-                    message.sender === 'user' 
-                      ? 'bg-blue-600 text-white' 
+                <div
+                  className={`rounded-lg p-3 max-w-[80%] shadow-sm ${message.sender === 'user'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'
-                  }`}
+                    }`}
                 >
                   <p className="text-sm break-words">
                     {message.text}
@@ -213,7 +225,7 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
             )}
           </div>
         </div>
-        
+
         {/* Input area */}
         <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -226,14 +238,13 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
               className="flex-1 px-4 py-3 focus:outline-none bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
               disabled={isLoading}
             />
-            <button 
+            <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className={`px-4 h-full transition-colors ${
-                isLoading || !input.trim()
+              className={`px-4 h-full transition-colors ${isLoading || !input.trim()
                   ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
                   : 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-              }`}
+                }`}
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
