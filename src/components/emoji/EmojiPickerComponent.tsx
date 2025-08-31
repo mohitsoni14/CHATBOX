@@ -31,25 +31,11 @@ const EmojiPickerComponent: React.FC<EmojiPickerComponentProps> = ({
     onEmojiClick(emojiData.emoji);
   };
 
-  const pickerStyle: React.CSSProperties = {
-    position: 'absolute',
-    zIndex: 1000,
-    // Position it right above the parent container (the input wrapper)
-    bottom: 'calc(100% + 10px)',
-    // Align it to the right edge of the parent container
-    right: 0,
-  };
-
   return (
-    <div ref={pickerRef} style={pickerStyle}>
-      <EmojiPicker
-        onEmojiClick={handleEmojiClick}
-        width={300}
-        height={350}
-        previewConfig={{
-          showPreview: false
-        }}
-      />
+    <div ref={pickerRef} className="emoji-picker-wrapper">
+    <EmojiPicker
+      onEmojiClick={handleEmojiClick}
+    />
     </div>
   );
 };
