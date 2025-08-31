@@ -10,6 +10,21 @@ import MenuDropdown from './MenuDropdown';
 import ChatbotOverlay from './ChatbotOverlay';
 import { useParams } from 'react-router-dom';
 import { sendMessage, subscribeToMessages, joinSession } from '../services/chatService';
+import { io, Socket } from "socket.io-client";
+
+interface MessageData {
+  id: string;
+  text: string;
+  sender: string;
+  timestamp: Date;
+  type: "text" | "image" | "file";
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  fileData?: any;
+  duration?: number;
+  isAudio?: boolean;
+}
 
 interface ChatInterfaceProps {
   onLogout: () => void;
@@ -26,10 +41,117 @@ interface Message {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername = '' }) => {
+  // ===================================================================================
+  // MOVED: All WebRTC and socket logic is now correctly placed inside the component.
+  // ===================================================================================
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [isCalling, setIsCalling] = useState(false);
+  const roomId = "global-room"; // or generate dynamically
+
+  const ensurePeerConnection = useCallback(async (
+    s: Socket,
+    targetSocketId?: string,
+    isOfferer = true
+  ): Promise<RTCPeerConnection> => {
+    if (pcRef.current) return pcRef.current;
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+    pcRef.current = pc;
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        s.emit("signal", { roomId, to: targetSocketId, type: "candidate", payload: event.candidate });
+      }
+    };
+
+    pc.ontrack = (ev) => {
+      if (remoteVideoRef.current) {
+        const [stream] = ev.streams;
+        remoteVideoRef.current.srcObject = stream;
+      }
+    };
+
+    if (!localStreamRef.current) {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    }
+
+    localStreamRef.current.getTracks().forEach((track) =>
+      pc.addTrack(track, localStreamRef.current!)
+    );
+
+    return pc;
+  }, [roomId]); // useCallback depends on roomId
+
+  useEffect(() => {
+    const s = io('http://localhost:4000'); // adjust to your signaling server URL
+    setSocket(s);
+
+    s.on('connect', () => {
+      console.log('Signaling socket connected', s.id);
+      if (roomId) s.emit('join-room', roomId);
+    });
+
+    s.on("signal", async ({ from, type, payload }: { from: string; type: string; payload: any }) => {
+      console.log('signal received', { from, type });
+      if (type === 'offer') {
+        await ensurePeerConnection(s, from, false);
+        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
+        const answer = await pcRef.current!.createAnswer();
+        await pcRef.current!.setLocalDescription(answer);
+        s.emit('signal', { roomId, to: from, type: 'answer', payload: pcRef.current!.localDescription });
+      } else if (type === 'answer') {
+        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
+      } else if (type === 'candidate') {
+        try {
+          await pcRef.current?.addIceCandidate(new RTCIceCandidate(payload));
+        } catch (e) { console.warn('addIceCandidate failed', e); }
+      }
+    });
+
+    s.on("peer-joined", (data: { socketId: string }) => {
+      console.log('peer joined', data);
+    });
+
+    s.on("peer-left", (data: { socketId: string }) => {
+      console.log('peer left', data);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+    });
+
+    return () => {
+      if (s) {
+        s.disconnect();
+      }
+    };
+  }, [roomId, ensurePeerConnection]); // useEffect depends on roomId and ensurePeerConnection
+
+  // ===================================================================================
+  // Original component state and logic continues here...
+  // ===================================================================================
+  
   const { sessionId } = useParams<{ sessionId: string }>();
-  const [userCode] = React.useState(() => 
-    Math.random().toString(36).substring(2, 12).toUpperCase()
-  );
+  const [userCode, setUserCode] = useState(() => localStorage.getItem('chat_user_code'));
+
+  useEffect(() => {
+    if (!userCode) {
+      const newCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+      localStorage.setItem('chat_user_code', newCode);
+      setUserCode(newCode);
+    }
+  }, [userCode]);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,15 +162,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Set up entrance animation and initial state
   useEffect(() => {
-    // Entrance animation
     gsap.fromTo(containerRef.current,
       { opacity: 0, y: 30 },
       { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' }
     );
 
-    // Set the username from initialUsername prop if available
     console.log('ChatInterface - initialUsername:', initialUsername);
     if (initialUsername) {
       console.log('Setting username from initialUsername prop:', initialUsername);
@@ -57,27 +176,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
       return;
     }
 
-    // Otherwise, try to get from localStorage
     const storedUsername = localStorage.getItem('chat_username');
     console.log('Stored username from localStorage:', storedUsername);
     if (storedUsername) {
       console.log('Setting username from localStorage:', storedUsername);
       setUsername(storedUsername);
     } else {
-      // If no username is found, generate a random one
       const randomUsername = `User${Math.floor(1000 + Math.random() * 9000)}`;
       console.log('No username found, generating random one:', randomUsername);
       setUsername(randomUsername);
       localStorage.setItem('chat_username', randomUsername);
     }
-  }, []);
+  }, [initialUsername]); // Added initialUsername to dependency array for correctness
 
-  // Handle theme changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Join session and subscribe to messages
   useEffect(() => {
     if (!sessionId || !userCode || !username) return;
 
@@ -86,19 +201,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
     const joinChat = async () => {
       try {
         await joinSession(sessionId, userCode, username);
-        
-        // Subscribe to messages
+
         const unsubscribeFn = subscribeToMessages(sessionId, (newMessages) => {
           setMessages(prevMessages => {
-            // Filter out any duplicate messages
             const uniqueMessages = newMessages.filter(
               newMsg => !prevMessages.some(msg => msg.id === newMsg.id)
             );
             return [...prevMessages, ...uniqueMessages];
           });
         });
-        
-        // Store the unsubscribe function
+
         unsubscribe = unsubscribeFn;
         setIsConnected(true);
       } catch (error) {
@@ -109,7 +221,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
 
     joinChat();
 
-    // Cleanup function to unsubscribe when component unmounts or session changes
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -138,7 +249,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
       await sendMessage(sessionId, messageToSend);
     } catch (error) {
       console.error('Error sending message:', error);
-      // TODO: Show error toast to user
     }
   }, [sessionId, userCode, username]);
 
@@ -155,45 +265,45 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
         setIsMenuOpen={setIsMenuOpen}
         username={username}
       />
-      
+
       <MenuDropdown
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
       />
 
       <div className="chat-body relative">
-        <ChatbotOverlay 
+        <ChatbotOverlay
           isOpen={isChatbotOpen}
           onClose={() => setIsChatbotOpen(false)}
         />
-        
+
         {sessionId && <Sidebar sessionId={sessionId} />}
-        
+
         <div className="chat-main">
           {!isConnected && (
             <div className="connection-status">
               Connecting to chat...
             </div>
           )}
-          
-          <div className={`flex-1 flex flex-col h-full relative ${activeGame ? 'blur-sm' : ''}`}>
-            <ChatArea 
-              messages={messages} 
-              currentUser={userCode} 
-              username={username} 
+
+          {userCode && (
+            <ChatArea
+              messages={messages}
+              currentUser={userCode}
+              username={username}
             />
-          </div>
+          )}
 
           {activeGame === 'tictactoe' && (
             <div className="fixed inset-0 flex items-center justify-center z-50">
-              <div 
+              <div
                 className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
                 onClick={() => setActiveGame(null)}
               />
               <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 border-2 border-blue-400">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-gray-800 dark:text-white">Tic Tac Toe</h3>
-                  <button 
+                  <button
                     onClick={() => setActiveGame(null)}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
                     aria-label="Close game"
@@ -205,16 +315,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
               </div>
             </div>
           )}
-          
-          <InputArea 
-            onSendMessage={handleSendMessage} 
+
+          <InputArea
+            onSendMessage={handleSendMessage}
             onOpenChatbot={() => setIsChatbotOpen(true)}
             isConnected={isConnected}
           />
         </div>
 
-        <GamesPanel 
-          isOpen={isGamesOpen} 
+        <GamesPanel
+          isOpen={isGamesOpen}
           onClose={() => setIsGamesOpen(false)}
           onGameSelect={setActiveGame}
         />

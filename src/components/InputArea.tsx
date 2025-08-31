@@ -51,10 +51,10 @@ const storeMediaData = (id: string, dataUrl: string, type: 'image' | 'audio' = '
   try {
     const storageKey = type === 'image' ? 'chatImages' : 'chatAudios';
     const storedItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    
+
     // Remove any existing entry with this ID
     const filteredItems = storedItems.filter((item: any) => item.id !== id);
-    
+
     // For audio, ensure we have a proper data URL
     let dataToStore = dataUrl;
     if (type === 'audio') {
@@ -67,13 +67,13 @@ const storeMediaData = (id: string, dataUrl: string, type: 'image' | 'audio' = '
         dataToStore = `data:audio/wav;base64,${base64Data}`;
       }
     }
-    
+
     // Add new entry at the beginning of the array (most recent first)
     filteredItems.unshift({ id, dataUrl: dataToStore });
-    
+
     // Store only the 10 most recent items to prevent localStorage overflow
     const itemsToStore = filteredItems.slice(0, 10);
-    
+
     localStorage.setItem(storageKey, JSON.stringify(itemsToStore));
     return true;
   } catch (error) {
@@ -87,30 +87,30 @@ const getStoredMedia = (id: string, type: 'image' | 'audio' = 'image'): string |
     const storageKey = type === 'image' ? 'chatImages' : 'chatAudios';
     const storedData = localStorage.getItem(storageKey);
     if (!storedData) return null;
-    
+
     const storedItems = JSON.parse(storedData);
     if (!Array.isArray(storedItems)) return null;
-    
+
     const item = storedItems.find((item: any) => item?.id === id);
     if (!item?.dataUrl) return null;
-    
+
     // Ensure audio URLs have the correct MIME type
     if (type === 'audio') {
       // If it's already a proper audio data URL, return as is
       if (item.dataUrl.startsWith('data:audio/')) {
         return item.dataUrl;
       }
-      
+
       // If it's a base64 string without the data URL prefix, add it
       if (!item.dataUrl.startsWith('data:')) {
         return `data:audio/wav;base64,${item.dataUrl}`;
       }
-      
+
       // If it's a data URL but not audio, fix the MIME type
       const base64Data = item.dataUrl.split(',')[1] || item.dataUrl;
       return `data:audio/wav;base64,${base64Data}`;
     }
-    
+
     return item.dataUrl;
   } catch (error) {
     console.error(`Error getting stored ${type}:`, error);
@@ -152,7 +152,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   const handleImageCapture = useCallback(async (data: { url: string, blob: Blob, dataUrl: string }) => {
     const messageId = Date.now().toString();
     storeImageData(messageId, data.dataUrl);
-    
+
     onSendMessage({
       id: messageId,
       text: data.dataUrl,
@@ -163,21 +163,21 @@ const InputArea: React.FC<InputAreaProps> = ({
       isStored: true,
       fileType: 'image/jpeg'
     });
-    
+
     setShowCamera(false);
   }, [onSendMessage]);
-  
+
   const handleFileSelect = useCallback((file: File) => {
     const messageId = Date.now().toString();
     const reader = new FileReader();
-    
+
     reader.onload = () => {
       if (reader.result) {
         const base64Data = reader.result.toString();
-        
+
         if (file.type.startsWith('image/')) {
           storeImageData(messageId, base64Data);
-          
+
           onSendMessage({
             id: messageId,
             text: base64Data,
@@ -205,10 +205,10 @@ const InputArea: React.FC<InputAreaProps> = ({
         }
       }
     };
-    
+
     reader.readAsDataURL(file);
   }, [onSendMessage]);
-  
+
   const handleEmojiClick = useCallback((emoji: string) => {
     setMessage(prev => prev + emoji);
     setShowEmojiPicker(false);
@@ -216,9 +216,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   }, []);
 
   const handleCameraClick = useCallback(() => {
-    setShowCamera(true);  
+    setShowCamera(true);
   }, []);
-  
+
   const handleEmojiButtonClick = useCallback(() => {
     setShowEmojiPicker(prev => !prev);
   }, []);
@@ -259,22 +259,22 @@ const InputArea: React.FC<InputAreaProps> = ({
 
       newMediaRecorder.onstop = async () => {
         const recordingDuration = Math.ceil((Date.now() - startTime) / 1000);
-        
+
         if (chunks.length > 0) {
           const audioBlob = new Blob(chunks, { type: 'audio/webm' });
           const messageId = Date.now().toString();
-          
+
           // Convert blob to base64 for storage
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
-          
+
           reader.onloadend = () => {
             try {
               const base64data = reader.result as string;
-              
+
               // Store the audio data with proper MIME type
               storeMediaData(messageId, base64data, 'audio');
-              
+
               // Send the audio message with the actual recording duration
               onSendMessage({
                 id: messageId,
@@ -316,7 +316,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       setAudioChunks(chunks);
       setIsRecording(true);
       setIsPaused(false);
-      
+
       // Start UI timer
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
@@ -330,7 +330,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   const handlePauseResume = useCallback(() => {
     if (!mediaRecorder) return;
-    
+
     if (isPaused) {
       mediaRecorder.resume();
       // Restart timer if it was cleared
@@ -364,7 +364,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       recordingTimerRef.current = null;
     }
   }, [mediaRecorder]);
-  
+
   const handleSendMessage = useCallback(() => {
     if (message.trim()) {
       onSendMessage({
@@ -419,8 +419,8 @@ const InputArea: React.FC<InputAreaProps> = ({
     <div className="input-area">
       <div className="input-container">
         <div className="media-buttons">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleCameraClick}
             className="media-btn"
             aria-label="Camera"
@@ -432,8 +432,8 @@ const InputArea: React.FC<InputAreaProps> = ({
             accept="*/*"
             multiple={false}
           >
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="media-btn"
               aria-label="Attach file"
             >
@@ -441,8 +441,8 @@ const InputArea: React.FC<InputAreaProps> = ({
             </button>
           </FileUploadComponent>
         </div>
-        
-        <div className={`input-wrapper ${isFocused ? 'focused' : ''}`}>
+
+        <div className={`input-wrapper relative ${isFocused ? 'focused' : ''}`}>
           <input
             ref={inputRef}
             type="text"
@@ -454,16 +454,16 @@ const InputArea: React.FC<InputAreaProps> = ({
             className="message-input"
             disabled={!isConnected}
           />
-          
-          <button 
-            type="button" 
+
+          <button
+            type="button"
             onClick={handleEmojiButtonClick}
             className="emoji-btn"
             aria-label="Emoji"
           >
             <Smile size={20} />
           </button>
-          
+
           {showEmojiPicker && (
             <div ref={emojiPickerRef} className="emoji-picker-container">
               <EmojiPickerComponent
@@ -473,7 +473,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             </div>
           )}
         </div>
-        
+
         <div className="action-buttons">
           {isRecording ? (
             <div className="recording-controls">
@@ -522,7 +522,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               <Mic size={20} />
             </button>
           )}
-          
+
           <button
             type="button"
             onClick={onOpenChatbot}
@@ -532,7 +532,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           >
             <Bot size={20} />
           </button>
-          
+
           <button
             type="button"
             onClick={handleSendMessage}
@@ -544,12 +544,12 @@ const InputArea: React.FC<InputAreaProps> = ({
           </button>
         </div>
       </div>
-      
+
       {showCamera && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl mx-4 bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
             <div className="absolute top-4 right-4 z-10">
-              <button 
+              <button
                 className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 onClick={() => setShowCamera(false)}
                 aria-label="Close camera"
@@ -558,17 +558,27 @@ const InputArea: React.FC<InputAreaProps> = ({
               </button>
             </div>
             <div className="aspect-video w-full">
-              <CameraInterface 
+              <CameraInterface
                 onCapture={handleImageCapture}
                 onClose={() => setShowCamera(false)}
+                onStreamAvailable={(stream) => {
+                  // optional: store stream to add to a call in parent
+                  // We'll let ChatInterface handle the call; you can forward this via context or callback
+                  // For now we do nothing here - CameraInterface will cleanly stop when closed
+                  if (!stream) {
+                    // stream ended/closed
+                  } else {
+                    // stream started
+                  }
+                }}
               />
             </div>
           </div>
         </div>
       )}
-      
+
       <ChatbotOverlay isOpen={false} onClose={onOpenChatbot} />
-      
+
       <FileUploadComponent
         onFileSelect={handleFileSelect}
         accept="*/*"
