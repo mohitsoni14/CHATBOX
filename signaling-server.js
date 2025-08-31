@@ -6,6 +6,7 @@ import cors from 'cors';
 
 const app = express();
 app.use(cors());
+const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -45,7 +46,10 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Signaling server running on port ${PORT}`);
+});
+
+server.on('error', (error) => {
+  console.error('Server error:', error);
 });
