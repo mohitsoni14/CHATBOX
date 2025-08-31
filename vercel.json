@@ -5,8 +5,13 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "nodeVersion": "18.x"
       }
+    },
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
     },
     {
       "src": "api/**/*.js",
@@ -17,16 +22,10 @@
       "use": "@vercel/node"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/favicon.ico",
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/socket.io/(.*)", "dest": "/socket.io" },
+    { "src": "/favicon.ico",
       "dest": "/favicon.ico"
     },
     {

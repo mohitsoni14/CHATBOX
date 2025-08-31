@@ -1,18 +1,16 @@
 // File: server.js
 
-import express from 'express';
-import cors from 'cors';
-import Pusher from 'pusher';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import 'dotenv/config'; // Loads .env.local variables
-import { GoogleGenerativeAI } from '@google/generative-ai';
+const express = require('express');
+const cors = require('cors');
+const Pusher = require('pusher');
+const path = require('path');
+require('dotenv').config(); // Loads .env.local variables
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// No need to set __dirname as it's already available in CommonJS
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 4000;
 
 // Initialize Pusher
 const pusher = new Pusher({
@@ -29,7 +27,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Pusher authentication endpoint
 app.post('/api/pusher/auth', (req, res) => {
@@ -106,7 +104,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Serve the frontend
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Start server
