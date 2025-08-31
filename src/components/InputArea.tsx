@@ -546,18 +546,24 @@ const InputArea: React.FC<InputAreaProps> = ({
       </div>
       
       {showCamera && (
-        <div className="camera-overlay">
-          <button 
-            className="close-camera glass-btn"
-            onClick={() => setShowCamera(false)}
-            aria-label="Close camera"
-          >
-            <X size={24} />
-          </button>
-          <CameraInterface 
-            onCapture={handleImageCapture}
-            onClose={() => setShowCamera(false)}
-          />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl mx-4 bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
+            <div className="absolute top-4 right-4 z-10">
+              <button 
+                className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                onClick={() => setShowCamera(false)}
+                aria-label="Close camera"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="aspect-video w-full">
+              <CameraInterface 
+                onCapture={handleImageCapture}
+                onClose={() => setShowCamera(false)}
+              />
+            </div>
+          </div>
         </div>
       )}
       
