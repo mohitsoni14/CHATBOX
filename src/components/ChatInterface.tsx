@@ -120,20 +120,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
     setIsDarkMode(prev => !prev);
   }, []);
 
-  const handleSendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || !sessionId || !userCode || !username) return;
+  const handleSendMessage = useCallback(async (message: Message) => {
+    if (!sessionId || !userCode || !username) return;
 
-    const message = {
-      id: Date.now().toString(),
-      text,
+    const messageToSend = {
+      ...message,
+      id: message.id || Date.now().toString(),
       sender: userCode,
       senderName: username,
-      timestamp: Date.now(),
-      type: 'text' as const,
+      timestamp: message.timestamp || Date.now(),
+      type: message.type || 'text',
     };
 
     try {
-      await sendMessage(sessionId, message);
+      await sendMessage(sessionId, messageToSend);
     } catch (error) {
       console.error('Error sending message:', error);
       // TODO: Show error toast to user

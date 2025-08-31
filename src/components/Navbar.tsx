@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { Home, MessageCircle, Gamepad2, Settings, Bell, Bot, User, LogOut, Sun, Moon } from 'lucide-react';
+import { Home, MessageCircle, Gamepad2, Settings, Bot, User, LogOut, Sun, Moon } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
 interface NavbarProps {
@@ -63,7 +63,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="navbar-left">
           <div className="navbar-logo">
             <MessageCircle size={24} />
-            <span>OnlyChats</span>
+            <span>PlayBit</span>
           </div>
           <div className="navbar-links">
             <button 
@@ -97,9 +97,6 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="navbar-right">
-          <button className="nav-icon">
-            <Bell size={20} />
-          </button>
           <button className="nav-icon theme-toggle" onClick={onThemeToggle}>
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>

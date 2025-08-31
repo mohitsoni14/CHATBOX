@@ -12,8 +12,13 @@ export const sendMessage = async (sessionId: string, message: any) => {
   try {
     const messagesRef = ref(db, `sessions/${sessionId}/messages`);
     const newMessageRef = push(messagesRef);
+    
+    // Create a clean message object without the fileData field
+    const messageToSend = { ...message };
+    delete messageToSend.fileData; // Remove the Blob before sending to Firebase
+    
     await set(newMessageRef, {
-      ...message,
+      ...messageToSend,
       timestamp: Date.now()
     });
     return newMessageRef.key;
@@ -29,9 +34,14 @@ export const subscribeToMessages = (sessionId: string, callback: (messages: any[
   const handleData = (snapshot: any) => {
     const messages: any[] = [];
     snapshot.forEach((childSnapshot: any) => {
+      const messageData = childSnapshot.val();
+      // Ensure the timestamp is a Date object
+      const timestamp = messageData.timestamp ? new Date(messageData.timestamp) : new Date();
+      
       messages.push({
         id: childSnapshot.key,
-        ...childSnapshot.val()
+        ...messageData,
+        timestamp: timestamp
       });
     });
     callback(messages);

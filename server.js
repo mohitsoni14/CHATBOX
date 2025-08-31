@@ -32,8 +32,19 @@ app.post('/api/chat', async (req, res) => {
 
     res.status(200).json({ text });
   } catch (error) {
-    console.error('Error in /api/chat:', error.message);
-    res.status(500).json({ error: 'Failed to generate content' });
+    console.error('Error in /api/chat:', {
+      message: error.message,
+      stack: error.stack,
+      requestBody: req.body,
+      env: {
+        hasApiKey: !!process.env.GOOGLE_API_KEY,
+        apiKeyLength: process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.length : 0
+      }
+    });
+    res.status(500).json({ 
+      error: 'Failed to generate content',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
