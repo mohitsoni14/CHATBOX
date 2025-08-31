@@ -10,7 +10,7 @@ import MenuDropdown from './MenuDropdown';
 import ChatbotOverlay from './ChatbotOverlay';
 import { useParams } from 'react-router-dom';
 import { sendMessage, subscribeToMessages, joinSession } from '../services/chatService';
-import { io, Socket } from "socket.io-client";
+import io, { Socket } from "socket.io-client";
 
 interface MessageData {
   id: string;
@@ -45,7 +45,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   // MOVED: All WebRTC and socket logic is now correctly placed inside the component.
   // ===================================================================================
 
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<typeof Socket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -54,7 +54,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const roomId = "global-room"; // or generate dynamically
 
   const ensurePeerConnection = useCallback(async (
-    s: Socket,
+    s: typeof Socket,
     targetSocketId?: string,
     isOfferer = true
   ): Promise<RTCPeerConnection> => {
