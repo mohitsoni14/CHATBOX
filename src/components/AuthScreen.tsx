@@ -61,14 +61,16 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSessionJoin }) => {
         duration: 0.3,
         onComplete: () => onSessionJoin(sessionId, username)
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error joining session:', error);
       setIsLoading(false);
       
       // More specific error messages
-      if (error.message.includes('permission-denied')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('permission-denied')) {
         alert('Permission denied. Please check your internet connection and try again.');
-      } else if (error.message.includes('unavailable')) {
+      } else if (errorMessage.includes('unavailable')) {
         alert('Network error. Please check your internet connection.');
       } else {
         alert('Failed to join session. Please try again.');

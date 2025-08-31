@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, DataSnapshot, DatabaseReference } from 'firebase/database';
 import { database } from '../firebase/firebase';
 
 interface Participant {
@@ -16,6 +16,14 @@ interface SidebarProps {
   sessionId: string;
 }
 
+interface FirebaseUserData {
+  username: string;
+  status?: 'online' | 'idle' | 'offline';
+  avatar?: string;
+  joinedAt: string;
+  lastActive: string;
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ sessionId }) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -26,16 +34,19 @@ const Sidebar: React.FC<SidebarProps> = ({ sessionId }) => {
 
     const participantsRef = ref(database, `sessions/${sessionId}/users`);
     
-    const handleValueChange = (snapshot) => {
+    const handleValueChange = (snapshot: DataSnapshot) => {
       const participantsData = snapshot.val() || {};
-      const participantsList = Object.entries(participantsData).map(([id, data]: [string, any]) => ({
-        id,
-        username: data.username,
-        status: data.status || 'online',
-        avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.username)}&background=random`,
-        joinedAt: data.joinedAt,
-        lastActive: data.lastActive
-      }));
+      const participantsList = Object.entries(participantsData).map(([id, data]) => {
+        const userData = data as FirebaseUserData;
+        return {
+          id,
+          username: userData.username,
+          status: userData.status || 'online',
+          avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.username)}&background=random`,
+          joinedAt: userData.joinedAt,
+          lastActive: userData.lastActive
+        };
+      });
       
       setParticipants(participantsList);
       
