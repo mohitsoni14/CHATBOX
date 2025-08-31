@@ -33,9 +33,14 @@ const EmojiPickerComponent: React.FC<EmojiPickerComponentProps> = ({
 
   return (
     <div ref={pickerRef} className="emoji-picker-wrapper">
-    <EmojiPicker
-      onEmojiClick={handleEmojiClick}
-    />
+      <EmojiPicker
+        onEmojiClick={handleEmojiClick}
+        width={300}
+        height={350}
+        previewConfig={{
+          showPreview: false
+        }}
+      />
     </div>
   );
 };
