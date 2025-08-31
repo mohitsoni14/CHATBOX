@@ -1,4 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+// @ts-ignore
+import io from 'socket.io-client';
+
+// Define a more specific Socket type to avoid type issues
+interface Socket {
+  id: string;
+  on(event: string, callback: (...args: any[]) => void): void;
+  emit(event: string, ...args: any[]): void;
+  disconnect(): void;
+  connected: boolean;
+  io: any;
+}
 import { gsap } from 'gsap';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -10,7 +22,6 @@ import MenuDropdown from './MenuDropdown';
 import ChatbotOverlay from './ChatbotOverlay';
 import { useParams } from 'react-router-dom';
 import { sendMessage, subscribeToMessages, joinSession } from '../services/chatService';
-import io, { Socket } from "socket.io-client";
 
 interface MessageData {
   id: string;
@@ -45,7 +56,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   // MOVED: All WebRTC and socket logic is now correctly placed inside the component.
   // ===================================================================================
 
-  const [socket, setSocket] = useState<typeof Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -53,10 +64,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const [isCalling, setIsCalling] = useState(false);
   const roomId = "global-room"; // or generate dynamically
 
+  // @ts-ignore
   const ensurePeerConnection = useCallback(async (
-    s: typeof Socket,
-    targetSocketId?: string,
-    isOfferer = true
+s: Socket, 
+    targetSocketId: string, 
+    isInitiator: boolean = true
   ): Promise<RTCPeerConnection> => {
     if (pcRef.current) return pcRef.current;
 
@@ -94,7 +106,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   }, [roomId]); // useCallback depends on roomId
 
   useEffect(() => {
-    const s = io('http://localhost:4000'); // adjust to your signaling server URL
+    // Use environment variable for the signaling server URL
+    const signalingServer = import.meta.env.VITE_SIGNALING_SERVER || 'http://localhost:4000';
+    const s = io(signalingServer);
     setSocket(s);
 
     s.on('connect', () => {

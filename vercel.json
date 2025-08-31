@@ -11,8 +11,15 @@
     {
       "src": "api/**/*.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "signaling-server.js",
+      "use": "@vercel/node"
     }
   ],
+  "env": {
+    "NODE_ENV": "production"
+  },
   "routes": [
     {
       "src": "/api/(.*)",

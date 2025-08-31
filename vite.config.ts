@@ -5,13 +5,23 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
-    // This proxy is essential for the manual method
     proxy: {
+      // API proxy for development
       '/api': {
-        target: 'http://localhost:3001', // Or whatever port vercel dev runs on
+        target: 'http://localhost:3001',
         changeOrigin: true,
+        secure: false,
+      },
+      // WebSocket proxy for development
+      '/socket.io': {
+        target: 'ws://localhost:4000',
+        ws: true,
       },
     },
+  },
+  define: {
+    // Make environment variables available to the client
+    'import.meta.env.VITE_SIGNALING_SERVER': JSON.stringify(process.env.VITE_SIGNALING_SERVER || 'http://localhost:4000'),
   },
   base: '/',
   plugins: [react()],
