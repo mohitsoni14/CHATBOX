@@ -1,23 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { X, Send, Loader2 } from 'lucide-react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Mock response generator
-async function generateContent(prompt: string): Promise<string> {
-  // Add a small delay to simulate network request
-  await new Promise(resolve => setTimeout(resolve, 800));
+// Get Google API key from environment variables
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
-  const responses = [
-    "I'm a mock AI assistant. In a real implementation, this would be a response from an AI service.",
-    "Thanks for your message! This is a simulated response since we're not connected to an AI service.",
-    "I'm here to help! This is a placeholder response. In a production environment, this would connect to an AI service.",
-    "Hello! This is a demo response. The actual implementation would generate a relevant reply to your message.",
-    "I'm a placeholder for the AI assistant. Your message was: " + prompt
-  ];
-
-  // Return a random response
-  return responses[Math.floor(Math.random() * responses.length)];
+if (!GOOGLE_API_KEY) {
+  console.error('Google API key is not set. Please check your .env file');
 }
+
+// Initialize the Google Generative AI client
+const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+
+async function generateContent(prompt: string): Promise<string> {
+  try {
+    // Get the generative model
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    // Generate content
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.9,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    // Get the response text
+    const response = await result.response;
+    return response.text() || 'Sorry, I could not generate a response.';
+  } catch (error) {
+    console.error('Error generating content:', error);
+    return `Sorry, there was an error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+  }
+}
+
 interface ChatbotOverlayProps {
   isOpen: boolean;
   onClose: () => void;
@@ -70,21 +90,8 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
     setError(null);
 
     try {
-      // This now calls your serverless function
-      const response = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: currentInput }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
-      const aiResponse = data.text;
+      // Call the Google API directly
+      const aiResponse = await generateContent(currentInput);
 
       const aiMessage: Message = {
         id: Date.now().toString(),
