@@ -31,16 +31,8 @@ const EmojiPickerComponent: React.FC<EmojiPickerComponentProps> = ({
     onEmojiClick(emojiData.emoji);
   };
 
-  const pickerStyle: React.CSSProperties = {
-    position: 'absolute',
-    zIndex: 1000,
-    ...position,
-    transform: 'translateY(-100%)',
-    marginTop: '-10px'
-  };
-
   return (
-    <div ref={pickerRef} style={pickerStyle}>
+    <div ref={pickerRef} className="emoji-picker-wrapper">
       <EmojiPicker 
         onEmojiClick={handleEmojiClick} 
         width={300}
