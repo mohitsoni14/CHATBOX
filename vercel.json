@@ -5,27 +5,13 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist",
-        "nodeVersion": "22.x"
+        "distDir": "dist"
       }
-    },
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "signaling-server.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/socket.io/(.*)", "dest": "/socket.io" },
-    { "src": "/favicon.ico",
+    {
+      "src": "/favicon.ico",
       "dest": "/favicon.ico"
     },
     {

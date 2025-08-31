@@ -70,8 +70,8 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
     setError(null);
 
     try {
-      // This will work in both development and production
-      const response = await fetch('/api/chat', {
+      // This now calls your serverless function
+      const response = await fetch('http://localhost:3001/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
