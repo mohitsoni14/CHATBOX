@@ -1,7 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Camera, Mic, Paperclip, Smile, Bot, Send } from 'lucide-react';
+import { X } from 'lucide-react';
 import ChatbotOverlay from './ChatbotOverlay';
+import MessageInput from './message-input/MessageInput';
+import Toolbar from './toolbar/Toolbar';
 import CameraInterface from './camera/CameraInterface';
 import EmojiPickerComponent from './emoji/EmojiPickerComponent';
 import FileUploadComponent from './file-upload/FileUploadComponent';
@@ -54,11 +56,11 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   // Check if mobile view
   useEffect(() => {
@@ -199,100 +201,52 @@ const InputArea: React.FC<InputAreaProps> = ({
   }, [message, handleSendMessage]);
 
   return (
-    <div className="input-area">
-      <div className="input-container">
-        <div className="media-buttons">
-          <button 
-            type="button" 
-            onClick={handleCameraClick}
-            className="media-btn"
-            aria-label="Camera"
-          >
-            <Camera size={20} />
-          </button>
-          <FileUploadComponent
-            onFileSelect={handleFileSelect}
-            accept="*/*"
-            multiple={false}
-          >
-            <button 
-              type="button" 
-              className="media-btn"
-              aria-label="Attach file"
-            >
-              <Paperclip size={20} />
-            </button>
-          </FileUploadComponent>
-        </div>
+    <div className="input-area-container">
+      <Toolbar
+        onCameraClick={handleCameraClick}
+        onMicClick={handleVoiceClick}
+        onAttachmentClick={() => document.getElementById('file-upload')?.click()}
+        onEmojiClick={handleEmojiButtonClick}
+        onBotClick={onOpenChatbot}
+        isConnected={isConnected}
+      />
+      
+      <div className="input-wrapper">
+        <MessageInput
+          value={message}
+          onChange={setMessage}
+          onSend={handleSendMessage}
+          onEmojiClick={handleEmojiButtonClick}
+          onFileClick={() => document.getElementById('file-upload')?.click()}
+          onCameraClick={handleCameraClick}
+          onVoiceClick={handleVoiceClick}
+          placeholder="Type a message..."
+          disabled={!isConnected}
+          inputRef={inputRef}
+        />
         
-        <div className={`input-wrapper ${isFocused ? 'focused' : ''}`}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            placeholder="Type a message..."
-            className="message-input"
-            disabled={!isConnected}
-          />
-          
-          <button 
-            type="button" 
-            onClick={handleEmojiButtonClick}
-            className="emoji-btn"
-            aria-label="Emoji"
-          >
-            <Smile size={20} />
-          </button>
-          
-          {showEmojiPicker && (
-            <div ref={emojiPickerRef} className="emoji-picker-container">
-              <EmojiPickerComponent
-                onEmojiClick={handleEmojiClick}
-                onClose={() => setShowEmojiPicker(false)}
-              />
-            </div>
-          )}
-        </div>
+        <FileUploadComponent
+          onFileSelect={handleFileSelect}
+          accept="*/*"
+          multiple={false}
+        >
+          <div id="file-upload" style={{ display: 'none' }} />
+        </FileUploadComponent>
         
-        <div className="action-buttons">
-          <button
-            type="button"
-            onClick={handleVoiceClick}
-            className="action-btn"
-            aria-label="Voice message"
-          >
-            <Mic size={20} />
-          </button>
-          
-          <button
-            type="button"
-            onClick={onOpenChatbot}
-            className={`ai-btn ${isConnected ? 'connected' : ''}`}
-            aria-label={isConnected ? 'AI Assistant is connected' : 'AI Assistant is disconnected'}
-            title={isConnected ? 'AI Assistant is connected' : 'AI Assistant is disconnected'}
-          >
-            <Bot size={20} />
-          </button>
-          
-          <button
-            type="button"
-            onClick={handleSendMessage}
-            className={`send-btn ${message.trim() ? 'active' : ''}`}
-            disabled={!message.trim()}
-            aria-label="Send message"
-          >
-            <Send size={20} />
-          </button>
-        </div>
+        {showEmojiPicker && (
+          <div ref={emojiPickerRef}>
+            <EmojiPickerComponent
+              onEmojiClick={handleEmojiClick}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          </div>
+        )}
       </div>
       
       {showCamera && (
         <div className="camera-overlay">
           <button 
-            className="close-camera glass-btn"
+            className="close-camera" 
             onClick={() => setShowCamera(false)}
             aria-label="Close camera"
           >
@@ -306,14 +260,6 @@ const InputArea: React.FC<InputAreaProps> = ({
       )}
       
       <ChatbotOverlay isOpen={false} onClose={onOpenChatbot} />
-      
-      <FileUploadComponent
-        onFileSelect={handleFileSelect}
-        accept="*/*"
-        multiple={false}
-      >
-        <div id="file-upload" style={{ display: 'none' }} />
-      </FileUploadComponent>
     </div>
   );
 };
