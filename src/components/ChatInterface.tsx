@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// @ts-ignore
-import io from 'socket.io-client';
-
-// Define a more specific Socket type to avoid type issues
-interface Socket {
-  id: string;
-  on(event: string, callback: (...args: any[]) => void): void;
-  emit(event: string, ...args: any[]): void;
-  disconnect(): void;
-  connected: boolean;
-  io: any;
-}
+import { pusherClient, subscribeToChannel, sendSignal } from '../lib/pusher';
 import { gsap } from 'gsap';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -56,30 +45,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   // MOVED: All WebRTC and socket logic is now correctly placed inside the component.
   // ===================================================================================
 
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const [isCalling, setIsCalling] = useState(false);
-  const roomId = "global-room"; // or generate dynamically
+  const roomId = "global-room";
+  const [localPeerId] = useState(`peer-${Math.random().toString(36).substr(2, 9)}`);
+  const [remotePeerId, setRemotePeerId] = useState<string | null>(null);
 
-  // @ts-ignore
-  const ensurePeerConnection = useCallback(async (
-s: Socket, 
-    targetSocketId: string, 
-    isInitiator: boolean = true
-  ): Promise<RTCPeerConnection> => {
+  const ensurePeerConnection = useCallback(async (targetPeerId: string, isInitiator: boolean = true): Promise<RTCPeerConnection> => {
     if (pcRef.current) return pcRef.current;
 
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        // Add TURN servers here if needed
+      ],
     });
     pcRef.current = pc;
+    setPeerConnection(pc);
+    setRemotePeerId(targetPeerId);
 
+    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        s.emit("signal", { roomId, to: targetSocketId, type: "candidate", payload: event.candidate });
+        // Send the ICE candidate to the other peer through Pusher
+        const signal = {
+          type: 'candidate',
+          candidate: event.candidate,
+          from: localPeerId,
+          to: targetPeerId
+        };
+        sendSignal(`private-${targetPeerId}`, 'signal', signal);
       }
     };
 
@@ -102,51 +101,106 @@ s: Socket,
       pc.addTrack(track, localStreamRef.current!)
     );
 
+    pcRef.current = pc;
+    setPeerConnection(pc);
+    
     return pc;
-  }, [roomId]); // useCallback depends on roomId
+  }, [roomId, localPeerId]);
+
+  // Handle peer disconnection
+  const handlePeerLeft = useCallback((data: { peerId: string }) => {
+    console.log('Peer left:', data.peerId);
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
-    // Use environment variable for the signaling server URL
-    const signalingServer = import.meta.env.VITE_SIGNALING_SERVER || 'http://localhost:4000';
-    const s = io(signalingServer);
-    setSocket(s);
+    // Initialize Pusher connection
+    console.log('Initializing Pusher connection with ID:', localPeerId);
+    
+    // Set up Pusher subscription for signaling
+    const unsubscribeSignal = subscribeToChannel(
+      `private-${localPeerId}`, 
+      'signal', 
+      async (data: any) => {
+        console.log('Signal received', data);
+        
+        if (data.to !== localPeerId) return; // Not for us
+        
+        const pc = pcRef.current;
+        if (!pc) return;
 
-    s.on('connect', () => {
-      console.log('Signaling socket connected', s.id);
-      if (roomId) s.emit('join-room', roomId);
-    });
-
-    s.on("signal", async ({ from, type, payload }: { from: string; type: string; payload: any }) => {
-      console.log('signal received', { from, type });
-      if (type === 'offer') {
-        await ensurePeerConnection(s, from, false);
-        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
-        const answer = await pcRef.current!.createAnswer();
-        await pcRef.current!.setLocalDescription(answer);
-        s.emit('signal', { roomId, to: from, type: 'answer', payload: pcRef.current!.localDescription });
-      } else if (type === 'answer') {
-        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
-      } else if (type === 'candidate') {
         try {
-          await pcRef.current?.addIceCandidate(new RTCIceCandidate(payload));
-        } catch (e) { console.warn('addIceCandidate failed', e); }
+          if (data.type === 'offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            
+            // Send answer back to the caller
+            await sendSignal(`private-${data.from}`, 'signal', {
+              type: 'answer',
+              answer: answer,
+              from: localPeerId,
+              to: data.from
+            });
+          } else if (data.type === 'answer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          } else if (data.type === 'candidate' && data.candidate) {
+            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          }
+        } catch (error) {
+          console.error('Error handling signal:', error);
+        }
       }
+    );
+
+    // Subscribe to peer left events
+    const unsubscribePeerLeft = subscribeToChannel(
+      `presence-${roomId}`, 
+      'peer-left', 
+      handlePeerLeft
+    );
+
+    // Announce presence
+    sendSignal(`presence-${roomId}`, 'peer-joined', { 
+      peerId: localPeerId 
     });
 
-    s.on("peer-joined", (data: { socketId: string }) => {
-      console.log('peer joined', data);
-    });
-
-    s.on("peer-left", (data: { socketId: string }) => {
-      console.log('peer left', data);
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-    });
-
+    // Cleanup function
     return () => {
-      if (s) {
-        s.disconnect();
+      unsubscribeSignal();
+      unsubscribePeerLeft();
+      
+      // Notify others that we're leaving
+      sendSignal(`presence-${roomId}`, 'peer-left', { 
+        peerId: localPeerId 
+      });
+      
+      // Clean up peer connection
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
+      setPeerConnection(null);
+    };
+    sendSignal(`presence-${roomId}`, 'peer-joined', { 
+      peerId: localPeerId 
+    });
+
+    // Cleanup function
+    return () => {
+      unsubscribePeerLeft();
+      sendSignal(`presence-${roomId}`, 'peer-left', { 
+        peerId: localPeerId 
+      });
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
       }
     };
   }, [roomId, ensurePeerConnection]); // useEffect depends on roomId and ensurePeerConnection

@@ -2,24 +2,80 @@
 
 import express from 'express';
 import cors from 'cors';
+import Pusher from 'pusher';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import 'dotenv/config'; // Loads .env.local variables
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
-const port = 3001; // We'll run the backend on a different port
+const port = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors()); // Allow requests from your frontend
-app.use(express.json()); // Allow the server to read JSON from requests
+// Initialize Pusher
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.VITE_PUSHER_APP_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.VITE_PUSHER_CLUSTER || 'mt1',
+  useTLS: true,
+});
 
-// --- Gemini API Setup ---
+// Initialize Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// --- API Endpoint ---
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(join(__dirname, 'dist')));
+
+// Pusher authentication endpoint
+app.post('/api/pusher/auth', (req, res) => {
+  const socketId = req.body.socket_id;
+  const channel = req.body.channel_name;
+
+  if (!socketId || !channel) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const authResponse = pusher.authenticateUser(socketId, {
+      id: `user-${socketId}`,
+      user_info: {
+        name: 'Anonymous User'
+      }
+    });
+    res.status(200).json(authResponse);
+  } catch (error) {
+    console.error('Pusher auth error:', error);
+    res.status(403).json({ error: 'Authentication failed' });
+  }
+});
+
+// WebRTC signaling endpoint
+app.post('/api/pusher/send', (req, res) => {
+  const { channel, event, data } = req.body;
+
+  if (!channel || !event || !data) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    pusher.trigger(channel, event, data);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error sending Pusher message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// Chat API endpoint
 app.post('/api/chat', async (req, res) => {
   try {
     const { prompt } = req.body;
-    console.log('Received prompt:', prompt); // We can still log!
+    console.log('Received prompt:', prompt);
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -48,7 +104,12 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Serve the frontend
+app.get('*', (req, res) => {
+  res.sendFile(join(__dirname, 'dist', 'index.html'));
+});
+
+// Start server
 app.listen(port, () => {
-  console.log(`✅ Backend server running at http://localhost:${port}`);
-  console.log('API Key Loaded:', process.env.GOOGLE_API_KEY ? 'Yes' : 'No');
+  console.log(`Server running on port ${port}`);
 });
