@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
-import { Download, File, FileText, FileImage, FileVideo2, FileAudio, FileArchive, FileSpreadsheet, FileCode } from 'lucide-react';
+import { Download, File, FileText, FileImage, FileVideo2, FileAudio, FileArchive, FileSpreadsheet, FileCode, Play, Pause } from 'lucide-react';
 import ImageWithFallback from './ImageWithFallback';
 
 interface Message {
@@ -23,6 +23,8 @@ interface Message {
   };
   isStored?: boolean;
   isBotTyping?: boolean;
+  duration?: number; // Duration in seconds for audio messages
+  isAudio?: boolean; // Flag to identify audio messages
 }
 
 interface ChatAreaProps {
@@ -31,39 +33,190 @@ interface ChatAreaProps {
   username: string;
 }
 
-const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) => {
-  // Function to get stored image from localStorage
-  const getStoredImage = (id: string): string | null => {
+const ChatArea = ({ messages, currentUser, username }: ChatAreaProps): JSX.Element => {
+  // Create a ref to store audio elements and their cleanup functions
+  const audioRefs = useRef<{[key: string]: HTMLAudioElement | null}>({});
+  const cleanupRefs = useRef<{[key: string]: () => void}>({});
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const messagesRef = useRef<Message[]>(messages);
+  
+  // Keep messages ref in sync
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Function to toggle audio playback
+  const toggleAudioPlayback = useCallback(async (messageId: string) => {
     try {
-      const storedImages = JSON.parse(localStorage.getItem('chatImages') || '[]');
-      const imageData = storedImages.find((img: any) => img.id === id);
-      
-      if (!imageData) return null;
-      
-      // If it's a blob URL that might be revoked, try to get the stored data URL
-      if (imageData.dataUrl && imageData.dataUrl.startsWith('blob:')) {
-        const storedBase64 = storedImages.find((img: any) => 
-          img.id === `${id}_base64`
-        );
-        if (storedBase64) {
-          return storedBase64.dataUrl;
-        }
+      const audio = audioRefs.current[messageId];
+      if (!audio) {
+        console.warn('Audio element not found for message:', messageId);
+        return;
       }
       
-      return imageData?.dataUrl || null;
+      // Get the current message from the ref
+      const message = messagesRef.current.find(m => m.id === messageId);
+      if (!message) {
+        console.warn('Message not found:', messageId);
+        return;
+      }
+
+      // Pause currently playing audio if different from the one being toggled
+      if (playingAudioId && playingAudioId !== messageId) {
+        const currentAudio = audioRefs.current[playingAudioId];
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+      }
+
+      if (audio.paused) {
+        try {
+          // Get the audio data from storage
+          const audioSrc = getStoredMedia(messageId, 'audio');
+          
+          if (!audioRefs.current[messageId]) {
+            console.error('Audio element not found for message:', messageId);
+            return;
+          }
+          
+          if (!audioSrc) {
+            // Try to get the audio data from the message itself if available
+            const message = messages.find(m => m.id === messageId);
+            if (message?.fileData && message.fileData instanceof Blob) {
+              // If we have the blob data, create an object URL
+              const objectUrl = URL.createObjectURL(message.fileData);
+              const audioElement = audioRefs.current[messageId];
+              if (audioElement) {
+                audioElement.src = objectUrl;
+              }
+            } else {
+              console.error('No audio data found in storage or message for message:', messageId);
+              return;
+            }
+          } else {
+            // Use the stored audio source
+            const audioElement = audioRefs.current[messageId];
+            if (audioElement) {
+              audioElement.src = audioSrc;
+            }
+          }
+          
+          // Set up event listeners for the audio element
+          const currentAudio = audioRefs.current[messageId];
+          if (currentAudio) {
+            currentAudio.onplay = () => setPlayingAudioId(messageId);
+            currentAudio.onerror = (e) => {
+              console.error('Audio playback error:', e);
+              setPlayingAudioId(null);
+            };
+            
+            // Play the audio
+            await currentAudio.play().catch(error => {
+              console.error('Error playing audio:', error);
+              setPlayingAudioId(null);
+            });
+          }
+        } catch (error) {
+          console.error('Error playing audio:', error);
+          setPlayingAudioId(null);
+        }
+      } else {
+        audio.pause();
+        audio.currentTime = 0;
+        setPlayingAudioId(null);
+      }
     } catch (error) {
-      console.error('Error retrieving stored image:', error);
+      console.error('Error in toggleAudioPlayback:', error);
+      setPlayingAudioId(null);
+    }
+  }, [playingAudioId]);
+  
+  // Function to safely get stored media from localStorage
+  // with proper type checking and error handling
+  const getStoredMedia = useCallback((id: string | undefined | null, type: 'image' | 'audio' = 'image'): string | null => {
+    // Input validation
+    if (id === undefined || id === null) {
+      console.error('No ID provided to getStoredMedia');
       return null;
     }
-  };
+    
+    if (typeof id !== 'string') {
+      console.error('Invalid ID type, expected string:', id);
+      return null;
+    }
+    try {
+
+      const storageKey = type === 'image' ? 'chatImages' : 'chatAudios';
+      const storedData = localStorage.getItem(storageKey);
+      
+      if (!storedData) {
+        console.warn(`No ${type} data found in localStorage for key:`, storageKey);
+        return null;
+      }
+      
+      let storedItems;
+      try {
+        storedItems = JSON.parse(storedData);
+      } catch (e) {
+        console.error(`Error parsing ${storageKey} data:`, e);
+        return null;
+      }
+      
+      if (!Array.isArray(storedItems)) {
+        console.error(`Invalid ${type} data format in localStorage. Expected array, got:`, typeof storedItems);
+        return null;
+      }
+      
+      const item = storedItems.find((item: any) => item?.id === id || item?.id === String(id));
+      if (!item) {
+        console.warn(`No ${type} data found for id:`, id, 'Available IDs:', storedItems.map((i: any) => i?.id));
+        return null;
+      }
+
+      if (!item.dataUrl) {
+        console.warn(`Found item for id ${id} but dataUrl is missing`);
+        return null;
+      }
+      
+      // Ensure audio URLs have the correct MIME type
+      if (type === 'audio') {
+        // If it's already a proper audio data URL, return as is
+        if (item.dataUrl.startsWith('data:audio/')) {
+          return item.dataUrl;
+        }
+        
+        // If it's a base64 string without the data URL prefix, add it
+        if (!item.dataUrl.startsWith('data:')) {
+          return `data:audio/wav;base64,${item.dataUrl}`;
+        }
+        
+        // If it's a data URL but not audio, fix the MIME type
+        const parts = item.dataUrl.split(',');
+        if (parts.length < 2) {
+          console.warn('Invalid data URL format:', item.dataUrl);
+          return null;
+        }
+        return `data:audio/wav;base64,${parts[1]}`;
+      }
+      
+      return item.dataUrl;
+    } catch (error) {
+      console.error(`Error getting stored ${type}:`, error);
+      return null;
+    }
+  }, []);
+
+  // Alias for backward compatibility
+  const getStoredImage = useCallback((id: string): string | null => getStoredMedia(id, 'image'), [getStoredMedia]);
 
   // Function to check if a URL is a blob URL
-  const isBlobUrl = (url: string): boolean => {
+  const isBlobUrl = useCallback((url: string): boolean => {
     return url.startsWith('blob:');
-  };
+  }, []);
 
   // Function to store image data in localStorage
-  const storeImageData = (id: string, data: string | Blob): void => {
+  const storeImageData = useCallback((id: string, data: string | Blob): void => {
     try {
       // Don't store blob URLs as they are temporary
       if (typeof data === 'string' && data.startsWith('blob:')) {
@@ -92,7 +245,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) 
       if (data instanceof Blob) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          updateStoredImages(reader.result as string);
+          if (reader.result) {
+            updateStoredImages(reader.result as string);
+          }
         };
         reader.onerror = () => {
           console.error('Error reading blob data');
@@ -106,18 +261,24 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) 
     } catch (error) {
       console.error('Error storing image data:', error);
     }
-  };
+  }, []);
 
-  // Function to safely convert data to a Blob
-  const toBlob = (data: any): Blob | null => {
+  // Function to safely convert data to a Blob with better type checking
+  const toBlob = (data: unknown): Blob | null => {
     try {
       if (data instanceof Blob) return data;
-      if (data?.data && data.type) {
-        return new Blob([data.data], { type: data.type });
+      
+      if (data && typeof data === 'object') {
+        const blobData = data as Record<string, any>;
+        if (blobData.data && blobData.type) {
+          return new Blob([blobData.data], { type: String(blobData.type) });
+        }
       }
+      
       if (typeof data === 'string') {
         return new Blob([data], { type: 'text/plain' });
       }
+      
       return null;
     } catch (error) {
       console.error('Error converting to Blob:', error);
@@ -183,13 +344,22 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) 
     }
   }, [messages]);
 
-  const formatTime = (timestamp: Date | number) => {
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (timestampOrSeconds: Date | number) => {
+    // If it's a Date object or a timestamp in milliseconds, format as time
+    if (timestampOrSeconds instanceof Date || timestampOrSeconds > 1000000000) {
+      const date = timestampOrSeconds instanceof Date ? timestampOrSeconds : new Date(timestampOrSeconds);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Otherwise, treat it as a duration in seconds
+    const totalSeconds = Math.floor(Number(timestampOrSeconds) || 0);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
   return (
-    <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+    <div className="flex-1 overflow-y-auto p-4 space-y-2">
       {messages.map((message) => {
         const isOwnMessage = message.sender === currentUser;
         return (
@@ -251,6 +421,87 @@ const ChatArea: React.FC<ChatAreaProps> = ({ messages, currentUser, username }) 
                   >
                     <Download size={16} />
                   </a>
+                </div>
+              ) : (message.type === 'file' && (message.fileType?.startsWith('audio/') || message.isAudio)) ? (
+                <div className="audio-message-player w-full max-w-xs">
+                  <div className="flex items-center gap-3 p-3 bg-white bg-opacity-10 rounded-lg">
+                    <button 
+                      className={`play-pause-btn w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                        playingAudioId === message.id 
+                          ? 'bg-red-500 hover:bg-red-600' 
+                          : 'bg-blue-500 hover:bg-blue-600'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleAudioPlayback(message.id);
+                      }}
+                      aria-label={playingAudioId === message.id ? 'Pause' : 'Play'}
+                    >
+                      {playingAudioId === message.id ? (
+                        <Pause size={16} className="text-white" />
+                      ) : (
+                        <Play size={16} className="text-white" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">Voice message</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {message.fileSize && formatFileSize(message.fileSize)}
+                      </div>
+                    </div>
+                    <div className="audio-duration text-xs text-gray-500 dark:text-gray-400">
+                      {message.duration ? formatTime(message.duration) : '0:00'}
+                    </div>
+                    <audio 
+                      id={`audio-${message.id}`}
+                      ref={(el) => {
+                        // Clean up previous instance if it exists
+                        if (cleanupRefs.current[message.id]) {
+                          cleanupRefs.current[message.id]();
+                          delete cleanupRefs.current[message.id];
+                        }
+
+                        // Set the new audio element reference
+                        audioRefs.current[message.id] = el;
+                        
+                        if (el) {
+                          // Set up duration display when audio metadata is loaded
+                          const updateDuration = () => {
+                            const duration = Math.floor(el.duration || 0);
+                            const durationElement = el.parentElement?.querySelector('.audio-duration');
+                            if (durationElement) {
+                              durationElement.textContent = formatTime(duration);
+                            }
+                          };
+                          
+                          // Set up event listeners
+                          el.addEventListener('loadedmetadata', updateDuration);
+                          
+                          // Store cleanup function
+                          cleanupRefs.current[message.id] = () => {
+                            el.removeEventListener('loadedmetadata', updateDuration);
+                            if (playingAudioId === message.id) {
+                              setPlayingAudioId(null);
+                            }
+                            
+                            // Clean up any object URLs
+                            if (el.src && el.src.startsWith('blob:')) {
+                              URL.revokeObjectURL(el.src);
+                            }
+                          };
+                        }
+                      }}
+                      onTimeUpdate={(e) => {
+                        const target = e.target as HTMLAudioElement;
+                        const duration = Math.floor(target.duration || 0);
+                        const currentTime = Math.floor(target.currentTime || 0);
+                        const durationElement = target.parentElement?.querySelector('.audio-duration');
+                        if (durationElement) {
+                          durationElement.textContent = formatTime(duration - currentTime);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               ) : message.type === 'file' ? (
                 <div className="p-3 bg-white bg-opacity-10 rounded-lg flex items-center gap-3">

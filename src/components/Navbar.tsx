@@ -1,26 +1,24 @@
 import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { Home, MessageCircle, Gamepad2, Settings, Bot, User, LogOut, Sun, Moon } from 'lucide-react';
+import { Home, MessageCircle, Gamepad2, Settings, Bot, User, LogOut } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
 interface NavbarProps {
   onLogout: () => void;
   onMenuToggle: () => void;
   onGamesToggle: () => void;
-  isDarkMode: boolean;
-  onThemeToggle: () => void;
   onOpenChatbot?: () => void;
+  onThemeToggle?: () => void;
   setIsGamesOpen?: (isOpen: boolean) => void;
   setIsMenuOpen?: (isOpen: boolean) => void;
   username?: string;
+  isDarkMode?: boolean;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onMenuToggle,
   onGamesToggle,
-  isDarkMode,
-  onThemeToggle,
   onOpenChatbot,
   setIsGamesOpen,
   setIsMenuOpen,
@@ -43,9 +41,7 @@ const Navbar: React.FC<NavbarProps> = ({
     const handleScroll = () => {
       const scrolled = window.scrollY > 10;
       gsap.to(navRef.current, {
-        backgroundColor: scrolled 
-          ? (isDarkMode ? 'rgba(0, 0, 0, 0.95)' : 'rgba(255, 255, 255, 0.95)')
-          : (isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'),
+        backgroundColor: scrolled ? 'rgba(0, 0, 0, 0.95)' : 'rgba(0, 0, 0, 0.8)',
         duration: 0.3
       });
     };
@@ -97,10 +93,7 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="navbar-right">
-          <button className="nav-icon theme-toggle" onClick={onThemeToggle}>
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button 
+<button 
             className="nav-icon" 
             onClick={onOpenChatbot}
             title="Open AI Chatbot"
@@ -108,12 +101,12 @@ const Navbar: React.FC<NavbarProps> = ({
             <Bot size={20} />
           </button>
           <div className="navbar-profile">
-            <button className="profile-btn flex items-center gap-2" onClick={onMenuToggle}>
+            <div className="flex items-center gap-2">
               <User size={20} />
               <span className="text-sm font-medium">
                 {username || `User${userCode.substring(0, 4)}`}
               </span>
-            </button>
+            </div>
           </div>
           <button className="nav-icon logout-btn" onClick={onLogout}>
             <LogOut size={20} />

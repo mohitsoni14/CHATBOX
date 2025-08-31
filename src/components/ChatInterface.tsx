@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
 import InputArea from './InputArea';
 import GamesPanel from './GamesPanel';
+import TicTacToe from './games/TicTacToe';
 import MenuDropdown from './MenuDropdown';
 import ChatbotOverlay from './ChatbotOverlay';
 import { useParams } from 'react-router-dom';
@@ -36,6 +37,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const [isGamesOpen, setIsGamesOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [username, setUsername] = useState(initialUsername);
+  const [activeGame, setActiveGame] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Set up entrance animation and initial state
@@ -174,11 +176,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
             </div>
           )}
           
-          <ChatArea 
-            messages={messages} 
-            currentUser={userCode} 
-            username={username} 
-          />
+          <div className={`flex-1 flex flex-col h-full relative ${activeGame ? 'blur-sm' : ''}`}>
+            <ChatArea 
+              messages={messages} 
+              currentUser={userCode} 
+              username={username} 
+            />
+          </div>
+
+          {activeGame === 'tictactoe' && (
+            <div className="fixed inset-0 flex items-center justify-center z-50">
+              <div 
+                className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+                onClick={() => setActiveGame(null)}
+              />
+              <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 border-2 border-blue-400">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Tic Tac Toe</h3>
+                  <button 
+                    onClick={() => setActiveGame(null)}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
+                    aria-label="Close game"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <TicTacToe />
+              </div>
+            </div>
+          )}
           
           <InputArea 
             onSendMessage={handleSendMessage} 
@@ -187,9 +213,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
           />
         </div>
 
-        <GamesPanel
-          isOpen={isGamesOpen}
+        <GamesPanel 
+          isOpen={isGamesOpen} 
           onClose={() => setIsGamesOpen(false)}
+          onGameSelect={setActiveGame}
         />
       </div>
     </div>

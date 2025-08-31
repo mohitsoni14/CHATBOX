@@ -6,9 +6,10 @@ import TicTacToe from './games/TicTacToe';
 interface GamesPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onGameSelect: (gameId: string) => void;
 }
 
-const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose }) => {
+const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose, onGameSelect }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [activeGame, setActiveGame] = useState<string | null>(null);
 
@@ -35,27 +36,12 @@ const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose }) => {
       players: '2 Players',
       duration: '5 min',
       icon: '⚡'
-    },
-    {
-      id: 'chess',
-      name: 'Chess',
-      description: 'Strategic board game',
-      players: '2 Players',
-      duration: '30+ min',
-      icon: '♕'
-    },
-    {
-      id: 'ludo',
-      name: 'Ludo',
-      description: 'Roll dice and race to finish',
-      players: '2-4 Players',
-      duration: '20 min',
-      icon: '🎲'
     }
   ];
 
   const handleGameSelect = (gameId: string) => {
-    setActiveGame(gameId);
+    onGameSelect(gameId);
+    onClose();
   };
 
   return (
@@ -93,6 +79,18 @@ const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose }) => {
       ) : (
         <div className="game-container">
           <div className="game-header">
+            {activeGame === 'tictactoe' && (
+              <div className="game-preview">
+                <h4>Tic Tac Toe</h4>
+                <p>Click Play to start the game in the chat area</p>
+                <button 
+                  className="play-btn"
+                  onClick={() => handleGameSelect('tictactoe')}
+                >
+                  <Play size={16} /> Play
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setActiveGame(null)}
               className="back-btn"
@@ -101,8 +99,6 @@ const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
           {activeGame === 'tictactoe' && <TicTacToe />}
-          {activeGame === 'chess' && <div className="coming-soon">Chess - Coming Soon!</div>}
-          {activeGame === 'ludo' && <div className="coming-soon">Ludo - Coming Soon!</div>}
         </div>
       )}
     </div>
