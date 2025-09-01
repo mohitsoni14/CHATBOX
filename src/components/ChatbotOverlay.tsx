@@ -3,20 +3,35 @@ import { gsap } from 'gsap';
 import { X, Send, Loader2 } from 'lucide-react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Get Google API key from environment variables
-const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+// Get Google API key from environment variables with better error handling
+const getApiKey = () => {
+  const key = import.meta.env.VITE_GOOGLE_API_KEY;
+  if (!key) {
+    console.error('❌ Google API key is not set in environment variables.');
+    console.log('Please ensure you have set VITE_GOOGLE_API_KEY in your Vercel project settings.');
+  } else if (key.startsWith('YOUR_') || key.length < 20) {
+    console.error('❌ Invalid Google API key detected.');
+  } else {
+    console.log('✅ Google API key loaded successfully');
+  }
+  return key || '';
+};
+
+const GOOGLE_API_KEY = getApiKey();
 
 // Initialize Google Generative AI
 const initializeGenAI = () => {
   if (!GOOGLE_API_KEY) {
-    console.error('Google API key is not set. Chatbot features will be disabled.');
+    console.error('❌ Google API key is not set. Chatbot features will be disabled.');
     return null;
   }
   
   try {
-    return new GoogleGenerativeAI(GOOGLE_API_KEY);
+    const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+    console.log('✅ Google Generative AI initialized successfully');
+    return genAI;
   } catch (error) {
-    console.error('Failed to initialize Google Generative AI:', error);
+    console.error('❌ Failed to initialize Google Generative AI:', error);
     return null;
   }
 };
@@ -25,7 +40,12 @@ const genAI = initializeGenAI();
 
 async function generateContent(prompt: string): Promise<string> {
   if (!genAI) {
-    throw new Error('Chatbot is not properly configured. Missing or invalid Google API key.');
+    const errorMessage = 'Chatbot is not properly configured. ' + 
+      (GOOGLE_API_KEY 
+        ? 'The API key appears to be invalid. Please check your Vercel environment variables.'
+        : 'Missing Google API key. Please ensure VITE_GOOGLE_API_KEY is set in your Vercel project settings.');
+    console.error('❌', errorMessage);
+    throw new Error(errorMessage);
   }
 
   try {
