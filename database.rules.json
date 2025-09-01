@@ -4,6 +4,15 @@
       ".read": "auth != null",
       ".write": "auth != null",
       "$sessionId": {
+        ".read": "auth != null && (!data.exists() || !data.child('expiresAt').exists() || data.child('expiresAt').val() > now)",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['createdAt'])",
+        "createdAt": {
+          ".validate": "newData.isNumber() && (!data.exists() || !data.parent().child('expiresAt').exists())"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber() && newData.val() === (data.parent().child('createdAt').val() + 86400000)"
+        },
         "users": {
           ".indexOn": ["joinedAt"]
         }

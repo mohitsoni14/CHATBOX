@@ -1,11 +1,10 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getDatabase, ref, set, onValue } from "firebase/database";
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getDatabase, ref, set, onValue, onDisconnect } from "firebase/database";
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyB13M76giT4idpdkhbZZFaXVr1XSkVQgX0",
   authDomain: "masti-d4e13.firebaseapp.com",
@@ -15,6 +14,8 @@ const firebaseConfig = {
   appId: "1:613367761798:web:66fb862cf87f272ee2ba07",
   measurementId: "G-57JZ1MXLZB"
 };
+
+// Initialize Firebase
 
 // Initialize Firebase with retry logic
 const MAX_RETRIES = 3;
@@ -44,6 +45,30 @@ const initAuth = async (retryCount = 0) => {
       isAnonymous: userCredential.user.isAnonymous
     });
     
+    // Setup presence system
+    const userStatusRef = ref(database, 'status/' + userCredential.user.uid);
+    const userStatusDatabaseRef = ref(database, 'status/' + userCredential.user.uid);
+    
+    // Set user as online
+    await set(userStatusRef, {
+      state: 'online',
+      last_changed: new Date().toISOString(),
+    });
+    
+    // Create a reference to the special '.info/connected' path in Realtime Database.
+    const connectedRef = ref(database, '.info/connected');
+    onValue(connectedRef, (snapshot) => {
+      if (snapshot.val() === true) {
+        // When we disconnect, update the database
+        onDisconnect(userStatusRef).set({
+          state: 'offline',
+          last_changed: new Date().toISOString(),
+        }).catch((error) => {
+          console.error('Error setting up onDisconnect:', error);
+        });
+      }
+    });
+    
     return userCredential.user;
   } catch (error) {
     console.error(`❌ Authentication error (attempt ${retryCount + 1}):`, {
@@ -67,7 +92,7 @@ const initializeFirebase = async () => {
   try {
     await initAuth();
     // Set up auth state change listener
-    auth.onAuthStateChanged((user) => {
+    onAuthStateChanged(auth, (user) => {
       if (user) {
         isAuthenticated = true;
         console.log('👤 Auth state: User is signed in', { uid: user.uid });
@@ -83,7 +108,6 @@ const initializeFirebase = async () => {
     });
   } catch (error) {
     console.error('🔥 Failed to initialize Firebase after multiple attempts:', error);
-    // You might want to show a user-friendly error message here
   }
 };
 

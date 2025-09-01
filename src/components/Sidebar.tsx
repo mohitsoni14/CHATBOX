@@ -29,6 +29,38 @@ const Sidebar: React.FC<SidebarProps> = ({ sessionId }) => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const participantsRef = useRef<HTMLDivElement>(null);
 
+  // Animate participants when they are updated
+  useEffect(() => {
+    if (participants.length === 0) return;
+    
+    // Use GSAP to animate the participant items
+    const tl = gsap.timeline();
+    
+    // Target only the newly added participants
+    const newParticipants = document.querySelectorAll('.participant-item:not(.animated)');
+    
+    if (newParticipants.length > 0) {
+      tl.fromTo(newParticipants,
+        { opacity: 0, x: -30 },
+        {
+          opacity: 1,
+          x: 0,
+          duration: 0.6,
+          stagger: 0.1,
+          ease: 'power2.out',
+          onComplete: () => {
+            // Add a class to mark as animated
+            newParticipants.forEach(el => el.classList.add('animated'));
+          }
+        }
+      );
+    }
+    
+    return () => {
+      tl.kill();
+    };
+  }, [participants]);
+  
   useEffect(() => {
     if (!sessionId) return;
 
@@ -49,12 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sessionId }) => {
       });
       
       setParticipants(participantsList);
-      
-      // Animate new participants
-      gsap.fromTo('.participant-item',
-        { opacity: 0, x: -30 },
-        { opacity: 1, x: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out' }
-      );
     };
 
     // Set up the listener

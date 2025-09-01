@@ -10,18 +10,10 @@ import MenuDropdown from './MenuDropdown';
 import ChatbotOverlay from './ChatbotOverlay';
 import { useParams } from 'react-router-dom';
 import { sendMessage, subscribeToMessages, joinSession } from '../services/chatService';
-// Import the actual socket.io-client
-import io from 'socket.io-client';
-
-// Define the Socket type
-type SocketType = ReturnType<typeof io> & {
-  id?: string;
-};
-
-// Make io available globally for debugging in development
-if (import.meta.env.DEV) {
-  (window as any).io = io;
-}
+import { getDatabase, ref, push, onValue, Database, DatabaseReference } from 'firebase/database';
+import { initializeApp, FirebaseApp, getApp, getApps } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 
 interface MessageData {
   id: string;
@@ -51,12 +43,50 @@ interface Message {
   type: 'text' | 'image' | 'file';
 }
 
+// Initialize Firebase only if it hasn't been initialized already
+let app: FirebaseApp;
+let database: Database;
+let auth: Auth;
+
+// Initialize Firebase
+try {
+  const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  };
+
+  // Check if Firebase app is already initialized
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+  
+  database = getDatabase(app);
+  auth = getAuth(app);
+  
+  console.log('Firebase initialized successfully');
+} catch (error) {
+  const firebaseError = error as FirebaseError;
+  console.error('Firebase initialization error:', {
+    code: firebaseError.code,
+    message: firebaseError.message,
+    stack: firebaseError.stack
+  });
+  throw new Error('Failed to initialize Firebase. Please check your configuration.');
+}
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername = '' }) => {
   // ===================================================================================
   // MOVED: All WebRTC and socket logic is now correctly placed inside the component.
   // ===================================================================================
 
-  const [socket, setSocket] = useState<SocketType | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [isSocketReady, setIsSocketReady] = useState(false);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -65,56 +95,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const [isCalling, setIsCalling] = useState(false);
   const roomId = "global-room"; // or generate dynamically
 
-  // Initialize socket when component mounts and io is available
-  useEffect(() => {
-    const initSocket = async () => {
-      if (!io) {
-        console.error('Socket.IO client not loaded');
-        return;
-      }
-
-      try {
-        const socketInstance = io('http://localhost:4000', {
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 5000,
-          timeout: 10000,
-          forceNew: true,
-          autoConnect: true,
-          upgrade: true,
-          secure: false
-        });
-
-        socketInstance.on('connect', () => {
-          console.log('Connected to signaling server');
-          setSocket(socketInstance);
-          setIsSocketReady(true);
-        });
-
-        socketInstance.on('connect_error', (error: any) => {
-          console.error('Connection error:', error.message);
-        });
-
-        socketInstance.on('disconnect', (reason: string) => {
-          console.log('Disconnected from server:', reason);
-          setIsSocketReady(false);
-        });
-
-        return () => {
-          socketInstance.disconnect();
-        };
-      } catch (error) {
-        console.error('Failed to initialize socket:', error);
-      }
-    };
-
-    initSocket();
-  }, []);
-
   const ensurePeerConnection = useCallback(async (
-    s: SocketType,
+    s: any,
     targetSocketId?: string,
     isOfferer = true
   ): Promise<RTCPeerConnection> => {
@@ -127,7 +109,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        s.emit("signal", { roomId, to: targetSocketId, type: "candidate", payload: event.candidate });
+        push(ref(database, 'signals'), { roomId, to: targetSocketId, type: "candidate", payload: event.candidate });
       }
     };
 
@@ -154,48 +136,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   }, [roomId]); // useCallback depends on roomId
 
   useEffect(() => {
-    const s = io('http://localhost:4000', { transports: ['websocket'] });
-    setSocket(s);
-
-    s.on('connect', () => {
-      console.log('Signaling socket connected', s.id);
-      if (roomId) s.emit('join-room', roomId);
-    });
-
-    s.on("signal", async ({ from, type, payload }: { from: string; type: string; payload: any }) => {
-      console.log('signal received', { from, type });
-      if (type === 'offer') {
-        await ensurePeerConnection(s, from, false);
-        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
-        const answer = await pcRef.current!.createAnswer();
-        await pcRef.current!.setLocalDescription(answer);
-        s.emit('signal', { roomId, to: from, type: 'answer', payload: pcRef.current!.localDescription });
-      } else if (type === 'answer') {
-        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(payload));
-      } else if (type === 'candidate') {
-        try {
-          await pcRef.current?.addIceCandidate(new RTCIceCandidate(payload));
-        } catch (e) { console.warn('addIceCandidate failed', e); }
-      }
-    });
-
-    s.on("peer-joined", (data: { socketId: string }) => {
-      console.log('peer joined', data);
-    });
-
-    s.on("peer-left", (data: { socketId: string }) => {
-      console.log('peer left', data);
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-    });
-
+    setIsConnected(true);
+    
     return () => {
-      if (s) {
-        s.disconnect();
-      }
+      // Cleanup function if needed
+      setIsConnected(false);
     };
-  }, [roomId, ensurePeerConnection]); // useEffect depends on roomId and ensurePeerConnection
+  }, []);
+
+  useEffect(() => {
+    const signalsRef = ref(database, 'signals');
+    onValue(signalsRef, (snapshot) => {
+      const signals = snapshot.val();
+      if (signals) {
+        Object.keys(signals).forEach((key) => {
+          const signal = signals[key];
+          if (signal.type === 'offer') {
+            ensurePeerConnection(null, signal.from, false).then((pc) => {
+              pc.setRemoteDescription(new RTCSessionDescription(signal.payload));
+              pc.createAnswer().then((answer) => {
+                pc.setLocalDescription(answer);
+                push(ref(database, 'signals'), { roomId, to: signal.from, type: 'answer', payload: pc.localDescription });
+              });
+            });
+          } else if (signal.type === 'answer') {
+            pcRef.current?.setRemoteDescription(new RTCSessionDescription(signal.payload));
+          } else if (signal.type === 'candidate') {
+            try {
+              pcRef.current?.addIceCandidate(new RTCIceCandidate(signal.payload));
+            } catch (e) { console.warn('addIceCandidate failed', e); }
+          }
+        });
+      }
+    });
+  }, [roomId, ensurePeerConnection]);
 
   // ===================================================================================
   // Original component state and logic continues here...
@@ -213,7 +187,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   }, [userCode]);
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
@@ -258,33 +231,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
 
     let unsubscribe: (() => void) | undefined;
 
-    const joinChat = async () => {
+    const setupChat = async () => {
       try {
         await joinSession(sessionId, userCode, username);
-
-        const unsubscribeFn = subscribeToMessages(sessionId, (newMessages) => {
-          setMessages(prevMessages => {
-            const uniqueMessages = newMessages.filter(
-              newMsg => !prevMessages.some(msg => msg.id === newMsg.id)
-            );
-            return [...prevMessages, ...uniqueMessages];
-          });
+        
+        // Subscribe to messages using the chatService
+        return subscribeToMessages(sessionId, (messages) => {
+          // Convert messages to array and sort by timestamp
+          const sortedMessages = Object.values(messages || {})
+            .sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+          setMessages(sortedMessages as Message[]);
         });
-
-        unsubscribe = unsubscribeFn;
-        setIsConnected(true);
       } catch (error) {
-        console.error('Error joining session:', error);
-        setIsConnected(false);
+        console.error('Error setting up chat:', error);
       }
     };
 
-    joinChat();
+    // Set up the chat and store the unsubscribe function
+    setupChat().then(unsub => {
+      unsubscribe = unsub;
+    });
 
+    // Cleanup function
     return () => {
       if (unsubscribe) {
         unsubscribe();
-        setIsConnected(false);
       }
     };
   }, [sessionId, userCode, username]);
@@ -296,7 +267,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
   const handleSendMessage = useCallback(async (message: Message) => {
     if (!sessionId || !userCode || !username) return;
 
-    const messageToSend = {
+    const messageToSend: Message = {
       ...message,
       id: message.id || Date.now().toString(),
       sender: userCode,
@@ -309,6 +280,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout, initialUsername
       await sendMessage(sessionId, messageToSend);
     } catch (error) {
       console.error('Error sending message:', error);
+      // Consider showing an error message to the user
     }
   }, [sessionId, userCode, username]);
 

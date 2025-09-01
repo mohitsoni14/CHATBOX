@@ -6,17 +6,31 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Get Google API key from environment variables
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
-if (!GOOGLE_API_KEY) {
-  console.error('Google API key is not set. Please check your .env file');
-}
+// Initialize Google Generative AI
+const initializeGenAI = () => {
+  if (!GOOGLE_API_KEY) {
+    console.error('Google API key is not set. Chatbot features will be disabled.');
+    return null;
+  }
+  
+  try {
+    return new GoogleGenerativeAI(GOOGLE_API_KEY);
+  } catch (error) {
+    console.error('Failed to initialize Google Generative AI:', error);
+    return null;
+  }
+};
 
-// Initialize the Google Generative AI client
-const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+const genAI = initializeGenAI();
 
 async function generateContent(prompt: string): Promise<string> {
+  if (!genAI) {
+    throw new Error('Chatbot is not properly configured. Missing or invalid Google API key.');
+  }
+
   try {
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // Get the generative model - using gemini-1.5-flash-latest which supports generateContent
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     
     // Generate content
     const result = await model.generateContent({
@@ -122,21 +136,37 @@ const ChatbotOverlay: React.FC<ChatbotOverlayProps> = ({ isOpen, onClose }) => {
         ease: 'power2.out'
       });
 
-      // Animate content in
-      gsap.fromTo(
-        contentRef.current,
-        { y: 10, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.2, delay: 0.1, ease: 'power2.out' }
-      );
-    } else {
+      // Animate content in if it exists
+      if (contentRef.current) {
+        const contentAnimation = gsap.fromTo(
+          contentRef.current,
+          { y: 10, opacity: 0 },
+          { 
+            y: 0, 
+            opacity: 1, 
+            duration: 0.2, 
+            delay: 0.1, 
+            ease: 'power2.out' 
+          }
+        );
+        
+        return () => {
+          contentAnimation.kill();
+        };
+      }
+    } else if (overlayRef.current) {
       // Hide overlay with animation
-      gsap.to(overlayRef.current, {
+      const overlayAnimation = gsap.to(overlayRef.current, {
         opacity: 0,
         backdropFilter: 'blur(0px)',
         duration: 0.2,
         display: 'none',
         ease: 'power2.in'
       });
+      
+      return () => {
+        overlayAnimation.kill();
+      };
     }
   }, [isOpen]);
 

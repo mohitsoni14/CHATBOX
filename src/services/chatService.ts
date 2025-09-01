@@ -55,35 +55,96 @@ export const subscribeToMessages = (sessionId: string, callback: (messages: any[
   };
 };
 
+// Create or update session with expiration
+export const createOrUpdateSession = async (sessionId: string) => {
+  try {
+    const sessionRef = ref(db, `sessions/${sessionId}`);
+    const now = Date.now();
+    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours from now
+    
+    await set(sessionRef, {
+      createdAt: now,
+      expiresAt: expiresAt,
+      lastActive: now
+    });
+    
+    return { sessionId, expiresAt };
+  } catch (error) {
+    console.error('Error creating/updating session:', error);
+    throw error;
+  }
+};
+
 export const joinSession = async (sessionId: string, userId: string, username: string) => {
   try {
-    const userRef = ref(db, `sessions/${sessionId}/participants/${userId}`);
-    await set(userRef, {
-      username,
-      joinedAt: Date.now(),
-      isOnline: true,
-      lastSeen: null
-    });
-
-    // Set up presence detection
-    const userStatusRef = ref(db, `sessions/${sessionId}/participants/${userId}`);
+    // First create/update the session
+    await createOrUpdateSession(sessionId);
+    
+    // Reference to user's status in the session
+    const userStatusRef = ref(db, `sessions/${sessionId}/users/${userId}`);
+    const userPresenceRef = ref(db, `sessions/${sessionId}/participants/${userId}`);
     const connectedRef = ref(db, '.info/connected');
     
-    onValue(connectedRef, (snap) => {
+    // Set initial user data
+    const userData = {
+      userId,
+      username,
+      status: 'online',
+      joinedAt: Date.now(),
+      lastActive: Date.now(),
+      isActive: true
+    };
+    
+    // Update user data in the database
+    await set(userStatusRef, userData);
+    
+    // Set up presence detection
+    const unsubscribe = onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
         // User's connection is online
-        set(ref(db, `sessions/${sessionId}/participants/${userId}/isOnline`), true);
+        const userStatusUpdate = {
+          ...userData,
+          status: 'online',
+          lastActive: Date.now(),
+          isOnline: true
+        };
+        
+        // Update user status to online
+        set(userStatusRef, userStatusUpdate);
+        set(userPresenceRef, { 
+          isOnline: true, 
+          lastActive: Date.now(),
+          username: username
+        });
         
         // Set up disconnect handler
-        onDisconnect(ref(db, `sessions/${sessionId}/participants/${userId}/isOnline`))
-          .set(false)
-          .then(() => {
-            console.log('On disconnect function set up');
-          });
+        onDisconnect(userStatusRef).update({
+          status: 'offline',
+          lastActive: Date.now(),
+          isActive: false
+        });
+        
+        onDisconnect(userPresenceRef).remove();
       }
     });
     
-    return true;
+    // Return cleanup function
+    return () => {
+      // Update status to offline when leaving the session
+      set(userStatusRef, {
+        ...userData,
+        status: 'offline',
+        lastActive: Date.now(),
+        isActive: false
+      });
+      set(userPresenceRef, { 
+        isOnline: false, 
+        lastActive: Date.now()
+      });
+      
+      // Unsubscribe from the connection listener
+      off(connectedRef, 'value');
+    };
   } catch (error) {
     console.error('Error joining session:', error);
     throw error;

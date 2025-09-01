@@ -14,16 +14,37 @@ const GamesPanel: React.FC<GamesPanelProps> = ({ isOpen, onClose, onGameSelect }
   const [activeGame, setActiveGame] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!panelRef.current) return;
+    
+    let animation: gsap.core.Tween;
+    
     if (isOpen) {
-      gsap.fromTo(panelRef.current,
+      // Animate panel in
+      animation = gsap.fromTo(panelRef.current,
         { x: 300, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out' }
+        { 
+          x: 0, 
+          opacity: 1, 
+          duration: 0.5, 
+          ease: 'power2.out' 
+        }
       );
     } else {
-      gsap.to(panelRef.current,
-        { x: 300, opacity: 0, duration: 0.3, ease: 'power2.in' }
-      );
+      // Animate panel out
+      animation = gsap.to(panelRef.current, {
+        x: 300, 
+        opacity: 0, 
+        duration: 0.3, 
+        ease: 'power2.in'
+      });
     }
+    
+    // Clean up animation on unmount
+    return () => {
+      if (animation) {
+        animation.kill();
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
